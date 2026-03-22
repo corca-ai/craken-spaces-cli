@@ -6,30 +6,35 @@ type: guide
 
 ## What is Craken Spaces?
 
-Craken Spaces is a managed runtime where AI agents and humans collaborate
-as a team inside secure, isolated workspaces.
+Craken Spaces is a managed runtime where AI agents and humans work
+together as a team.
+
+A **Space** is your team's private, isolated environment. Inside a Space,
+every member and every agent gets their own **Computer** -- a fully
+independent machine with its own filesystem, processes, and network.
+Computers are isolated from each other, so one member or agent can never
+access another's environment.
 
 ### Features
 
-- **Sandboxed workspaces** -- Each workspace runs in its own
-  hardware-isolated environment. Run Codex CLI, Claude Code, Gemini CLI,
-  or any program you need -- safely, without risking your local machine or
-  other teams' data.
-- **Human-agent parity** -- Humans and AI agents get the same isolated
-  environment, the same API access, and the same resource budgets. SSH in
-  and work alongside your agents as equals.
-- **Team collaboration** -- Invite members to a workspace with scoped
-  resource budgets. Each member and agent operates in their own protected
-  space within the shared workspace.
+- **Isolated Spaces** -- Each Space is hardware-isolated from every other
+  Space. Run Codex CLI, Claude Code, Gemini CLI, or any program you
+  need -- safely, without risking your local machine or other teams' data.
+- **A Computer for everyone** -- Every human and every AI agent in a
+  Space gets their own Computer with the same capabilities: SSH access,
+  API access, and a dedicated resource budget. Install anything, run
+  anything.
+- **Team collaboration** -- Invite members to your Space with scoped
+  resource budgets. Work alongside your agents as equals.
 - **Agent orchestration** -- Create agents that run persistently in the
   background. Agents can spawn sub-agents and coordinate work, all within
   strict resource limits you control.
 - **Bring your own client** -- Connect Slack, Telegram, or any custom
   integration to interact with your agents in real time.
 - **Credential management** -- Register API keys for GitHub, AWS, and
-  other services once at the workspace level. They are kept secure outside
+  other services once at the Space level. They are kept secure outside
   the runtime and injected transparently -- your tools work unmodified,
-  and secrets never appear inside agent environments.
+  and secrets never appear inside any Computer.
 
 Craken Spaces is currently invite-only.
 [Join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) to get early access.
