@@ -1,0 +1,65 @@
+version: 2
+
+builds:
+  - id: craken
+    main: ./cmd/craken
+    binary: craken
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      craken_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  format: "{{ .SHA }}: {{ .Message }}{{ if .Logins }} ({{ .Logins | englishJoin }}){{ end }}"
+  groups:
+    - title: Added
+      regexp: '^Add '
+      order: 1
+    - title: Fixed
+      regexp: '^Fix '
+      order: 2
+    - title: Changed
+      regexp: '^(Replace|Simplify|Consolidate|Unify|Restructure|Use|Move|Rename|Refactor)'
+      order: 3
+    - title: Removed
+      regexp: '^Remove '
+      order: 4
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - '^Merge '
+
+release:
+  github:
+    owner: corca-ai
+    name: craken-cli
+
+brews:
+  - repository:
+      owner: corca-ai
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/corca-ai/craken-cli
+    description: CLI for Craken managed workspaces
+    license: MIT
+    install: |
+      bin.install "craken"
+    test: |
+      system bin/"craken", "version"
