@@ -7,7 +7,7 @@ See [AGENTS.md](AGENTS.md) for architecture and development details.
 ## Install
 
 ```sh
-brew install corca-ai/tap/craken
+brew install corca-ai/tap/craken-spaces-cli
 ```
 
 ## Usage
