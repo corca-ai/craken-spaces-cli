@@ -62,15 +62,15 @@ changelog:
 release:
   github:
     owner: corca-ai
-    name: craken-agents-cli
+    name: craken-spaces-cli
 
 brews:
   - repository:
       owner: corca-ai
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/corca-ai/craken-agents-cli
-    description: CLI for Craken Agents
+    homepage: https://github.com/corca-ai/craken-spaces-cli
+    description: CLI for Craken Spaces
     license: MIT
     install: |
       bin.install "craken"

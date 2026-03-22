@@ -1,6 +1,6 @@
-# craken-agents-cli
+# craken-spaces-cli
 
-CLI client for Craken Agents.
+CLI client for Craken Spaces.
 
 See [AGENTS.md](AGENTS.md) for architecture and development details.
 

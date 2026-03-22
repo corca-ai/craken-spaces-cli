@@ -2,9 +2,9 @@
 type: guide
 ---
 
-# craken-agents-cli
+# craken-spaces-cli
 
-CLI client for the Craken Agents. It authenticates users against the
+CLI client for the Craken Spaces. It authenticates users against the
 public control-plane HTTP API, manages workspaces and SSH keys, and uses
 short-lived SSH certificates for secure Cell entry.
 

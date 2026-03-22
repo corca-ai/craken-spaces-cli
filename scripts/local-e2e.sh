@@ -53,7 +53,7 @@ charlie_session="${tmp_dir}/charlie.session.json"
 alice_key="${tmp_dir}/alice_ed25519"
 ca_key="${tmp_dir}/ssh-user-ca"
 craken_bin="${tmp_dir}/craken"
-craken_cli_bin="${tmp_dir}/craken-agents-cli"
+craken_cli_bin="${tmp_dir}/craken-spaces-cli"
 
 cleanup() {
 	set +e
