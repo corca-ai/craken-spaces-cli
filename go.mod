@@ -1,4 +1,4 @@
-module github.com/corca-ai/craken-cli
+module github.com/corca-ai/craken-agents-cli
 
 go 1.26.1
 

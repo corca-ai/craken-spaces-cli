@@ -1,6 +1,6 @@
-# craken-cli
+# craken-agents-cli
 
-CLI client for Craken Managed Runtime.
+CLI client for Craken Agents.
 
 See [AGENTS.md](AGENTS.md) for architecture and development details.
 

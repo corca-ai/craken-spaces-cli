@@ -1,6 +1,6 @@
 # Agents
 
-CLI client for Craken Managed Runtime. It stores local session state, talks to
+CLI client for Craken Agents. It stores local session state, talks to
 the public control-plane HTTP API, and uses local `ssh` only for final Cell
 entry.
 

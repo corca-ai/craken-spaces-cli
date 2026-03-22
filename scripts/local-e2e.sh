@@ -53,7 +53,7 @@ charlie_session="${tmp_dir}/charlie.session.json"
 alice_key="${tmp_dir}/alice_ed25519"
 ca_key="${tmp_dir}/ssh-user-ca"
 craken_bin="${tmp_dir}/craken"
-craken_cli_bin="${tmp_dir}/craken-cli"
+craken_cli_bin="${tmp_dir}/craken-agents-cli"
 
 cleanup() {
 	set +e
@@ -113,7 +113,7 @@ if ! "${craken_cli_bin}" --session-file "${alice_session}" ssh list-keys | grep 
 	exit 1
 fi
 
-create_output="$("${craken_cli_bin}" --session-file "${alice_session}" workspace create --name alpha-cli-smoke)"
+create_output="$("${craken_cli_bin}" --session-file "${alice_session}" workspace create --name cli-smoke)"
 workspace_id="$(printf '%s\n' "${create_output}" | awk '/^created workspace / {print $3}')"
 if [[ -z "${workspace_id}" ]]; then
 	echo "failed to parse workspace id" >&2

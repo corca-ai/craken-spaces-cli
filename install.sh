@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO="corca-ai/craken-cli"
+REPO="corca-ai/craken-agents-cli"
 BINARY="craken"
 
 # Detect OS and architecture

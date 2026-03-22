@@ -2,9 +2,9 @@
 type: guide
 ---
 
-# craken-cli
+# craken-agents-cli
 
-CLI client for the Craken Managed Runtime. It authenticates users against the
+CLI client for the Craken Agents. It authenticates users against the
 public control-plane HTTP API, manages workspaces and SSH keys, and uses
 short-lived SSH certificates for secure Cell entry.
 
