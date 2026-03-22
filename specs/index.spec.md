@@ -6,11 +6,30 @@ type: guide
 
 ## What is Craken Spaces?
 
-Craken Spaces is a managed runtime where multiple AI agents and humans
-collaborate as a team in a shared workspace. Each workspace is an isolated
-server environment that can safely run tools like Codex CLI, Claude Code, and
-Gemini CLI side by side. Connect your preferred client -- Slack, Telegram, or
-any custom integration -- to interact with agents in real time.
+Craken Spaces is a managed runtime where AI agents and humans collaborate
+as a team inside secure, isolated workspaces.
+
+### Features
+
+- **Sandboxed workspaces** -- Each workspace runs in its own
+  hardware-isolated environment. Run Codex CLI, Claude Code, Gemini CLI,
+  or any program you need -- safely, without risking your local machine or
+  other teams' data.
+- **Human-agent parity** -- Humans and AI agents get the same isolated
+  environment, the same API access, and the same resource budgets. SSH in
+  and work alongside your agents as equals.
+- **Team collaboration** -- Invite members to a workspace with scoped
+  resource budgets. Each member and agent operates in their own protected
+  space within the shared workspace.
+- **Agent orchestration** -- Create agents that run persistently in the
+  background. Agents can spawn sub-agents and coordinate work, all within
+  strict resource limits you control.
+- **Bring your own client** -- Connect Slack, Telegram, or any custom
+  integration to interact with your agents in real time.
+- **Credential management** -- Register API keys for GitHub, AWS, and
+  other services once at the workspace level. They are kept secure outside
+  the runtime and injected transparently -- your tools work unmodified,
+  and secrets never appear inside agent environments.
 
 Craken Spaces is currently invite-only.
 [Join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) to get early access.
