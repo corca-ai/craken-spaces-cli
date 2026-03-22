@@ -9,17 +9,28 @@ priority order:
 
 1. **`--base-url` flag** (highest priority)
 2. **`CRAKEN_BASE_URL` environment variable**
-3. **Saved session file** (from the last `auth login`)
+3. **Saved session file** (from the last login)
 4. **Default** `https://agents.borca.ai` (lowest priority)
 
-This allows per-invocation overrides while keeping the common case zero-config
-after the initial login.
+The session file path is resolved similarly:
 
-```run:shell -> $url, $cli, $tmp
-# Load test environment
+1. **`--session-file` flag** (highest)
+2. **`CRAKEN_SESSION_FILE` environment variable**
+3. **`CRAKEN_CONFIG_DIR`** / `session.json`
+4. **Default** `~/.config/craken/session.json`
+
+This spec exercises the precedence rules directly, so it uses the raw binary
+with explicit environment variables instead of the wrapper.
+
+```run:shell -> $bin, $url, $tmp
+# Load test environment without wrapper
 . .specdown/test-env
 tmp=$(mktemp -d)
-printf '%s\n' "$FAKE_URL" "$CRAKEN_BIN" "$tmp"
+export CRAKEN_BASE_URL
+export CRAKEN_SESSION_FILE="$tmp/session.json"
+$SPACES auth login --email alice@example.com --key test-key >/dev/null
+ssh-keygen -q -t ed25519 -N '' -f "$tmp/id_test"
+printf '%s\n' "$SPACES" "$CRAKEN_BASE_URL" "$tmp"
 ```
 
 > teardown
@@ -30,37 +41,29 @@ rm -rf ${tmp}
 
 ## Flag overrides environment
 
-When both `--base-url` and `CRAKEN_BASE_URL` are set, the flag wins.
-We verify this by logging in with the flag pointing to the fake server:
+When both `--base-url` and `CRAKEN_BASE_URL` are set, the flag wins:
 
 ```run:shell
-$ CRAKEN_BASE_URL=http://should-not-be-used:9999 ${cli} --base-url ${url} --session-file ${tmp}/flag-test.json auth login --email alice@example.com --key test-key | head -1
-authenticated as alice@example.com
+$ CRAKEN_BASE_URL=http://wrong:9999 CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} --base-url ${url} auth login --email bob@example.com --key test-key | head -1
+authenticated as bob@example.com
 ```
 
 ## Environment overrides session
 
 When `CRAKEN_BASE_URL` is set, it takes precedence over the base URL saved in
-the session file. We verify by checking `ssh client-config` host resolution:
+the session file:
 
 ```run:shell
-# First login saves the fake URL in the session
-${cli} --base-url ${url} --session-file ${tmp}/env-test.json auth login --email alice@example.com --key test-key >/dev/null
-ssh-keygen -q -t ed25519 -N '' -f ${tmp}/id_env_test
-```
-
-```run:shell
-$ CRAKEN_BASE_URL=https://agents-dev.borca.ai ${cli} --session-file ${tmp}/env-test.json ssh client-config --workspace ws_1 --identity-file ${tmp}/id_env_test | grep HostName
+$ CRAKEN_BASE_URL=https://agents-dev.borca.ai CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --workspace ws_1 --identity-file ${tmp}/id_test | grep HostName
   HostName agents-dev.borca.ai
 ```
 
 ## Default base URL
 
-Without any override, the CLI falls back to the production URL.
-We can observe this in the help output:
+Without any override, the CLI falls back to the production URL:
 
 ```run:shell
-$ ${cli} help 2>&1 | grep CRAKEN_BASE_URL | grep -c agents.borca.ai
+$ ${bin} help 2>&1 | grep CRAKEN_BASE_URL | grep -c agents.borca.ai
 1
 ```
 
@@ -75,9 +78,7 @@ SSH-related environment variables override defaults:
 | `CRAKEN_SSH_LOGIN_USER` | `craken-cell` | SSH login user |
 | `CRAKEN_SSH_BIN` | `ssh` from PATH | local ssh binary |
 
-The `ssh client-config` command reflects these overrides:
-
 ```run:shell
-$ CRAKEN_SSH_LOGIN_USER=custom-user ${cli} --session-file ${tmp}/env-test.json ssh client-config --workspace ws_1 --identity-file ${tmp}/id_env_test --host test.example.com | grep User
+$ CRAKEN_SSH_LOGIN_USER=custom-user CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --workspace ws_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
   User custom-user
 ```

@@ -26,6 +26,15 @@ func TestResolveBaseURLPrefersEnvironmentOverSession(t *testing.T) {
 	}
 }
 
+func TestDefaultSessionPathPrefersEnvVar(t *testing.T) {
+	t.Setenv("CRAKEN_SESSION_FILE", "/tmp/custom-session.json")
+
+	got := defaultSessionPath()
+	if got != "/tmp/custom-session.json" {
+		t.Fatalf("defaultSessionPath = %q, want env override", got)
+	}
+}
+
 func TestResolveBaseURLPrefersExplicitFlagOverEnvironment(t *testing.T) {
 	t.Setenv("CRAKEN_BASE_URL", "https://agents-dev.borca.ai")
 

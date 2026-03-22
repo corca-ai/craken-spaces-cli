@@ -183,6 +183,7 @@ Commands:
 
 Environment:
   CRAKEN_BASE_URL      Override the default public control-plane base URL (https://agents.borca.ai)
+  CRAKEN_SESSION_FILE  Override the local session file path
   CRAKEN_SSH_HOST      Override SSH host for Cell entry
   CRAKEN_SSH_PORT      Override SSH port for Cell entry (default: 22)
   CRAKEN_SSH_LOGIN_USER Override SSH login user (default: craken-cell)

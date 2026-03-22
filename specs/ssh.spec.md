@@ -14,11 +14,20 @@ entry. The flow is:
 
 Certificates default to a 5-minute TTL, keeping the attack surface minimal.
 
-```run:shell -> $url, $cli, $tmp
-# Load test environment
+```run:shell -> $cli, $tmp
+# Create wrapper, authenticate, and generate a test key pair
 . .specdown/test-env
 tmp=$(mktemp -d)
-printf '%s\n' "$FAKE_URL" "$CRAKEN_BIN" "$tmp"
+cat > "$tmp/spaces" <<WRAPPER
+#!/bin/sh
+export CRAKEN_BASE_URL=$CRAKEN_BASE_URL
+export CRAKEN_SESSION_FILE=$tmp/session.json
+exec $SPACES "\$@"
+WRAPPER
+chmod +x "$tmp/spaces"
+"$tmp/spaces" auth login --email alice@example.com --key test-key >/dev/null
+ssh-keygen -q -t ed25519 -N '' -f "$tmp/id_ed25519"
+printf '%s\n' "$tmp/spaces" "$tmp"
 ```
 
 > teardown
@@ -27,20 +36,12 @@ printf '%s\n' "$FAKE_URL" "$CRAKEN_BIN" "$tmp"
 rm -rf ${tmp}
 ```
 
-## Setup: authenticate and create SSH key pair
-
-```run:shell
-# Log in and generate a test SSH key pair
-${cli} --base-url ${url} --session-file ${tmp}/session.json auth login --email alice@example.com --key test-key >/dev/null
-ssh-keygen -q -t ed25519 -N '' -f ${tmp}/id_ed25519
-```
-
 ## Add Key
 
 `ssh add-key` registers a public key with the control plane:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json ssh add-key --name my-laptop --public-key-file ${tmp}/id_ed25519.pub
+$ ${cli} ssh add-key --name my-laptop --public-key-file ${tmp}/id_ed25519.pub
 registered ssh key SHA256:fake1
 ```
 
@@ -49,7 +50,7 @@ registered ssh key SHA256:fake1
 `ssh list-keys` shows all registered public keys:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json ssh list-keys | grep my-laptop | awk '{print $2}'
+$ ${cli} ssh list-keys | grep my-laptop | awk '{print $2}'
 my-laptop
 ```
 
@@ -58,7 +59,7 @@ my-laptop
 `ssh remove-key` unregisters a key by fingerprint:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json ssh remove-key --fingerprint SHA256:fake1
+$ ${cli} ssh remove-key --fingerprint SHA256:fake1
 removed ssh key SHA256:fake1
 ```
 
@@ -68,7 +69,7 @@ removed ssh key SHA256:fake1
 private key:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json ssh issue-cert --identity-file ${tmp}/id_ed25519 | head -1
+$ ${cli} ssh issue-cert --identity-file ${tmp}/id_ed25519 | head -1
 issued ssh certificate ${tmp}/id_ed25519-cert.pub
 ```
 
@@ -93,7 +94,7 @@ ssh-keygen -q -t ed25519 -N '' -f ${tmp}/id_connect
 
 ```run:shell
 # Connect using the fake ssh binary
-CRAKEN_SSH_BIN=${tmp}/fake-ssh.sh ${cli} --session-file ${tmp}/session.json ssh connect --workspace ws_1 --host cell.example.com --identity-file ${tmp}/id_connect --command "echo hi" >/dev/null
+CRAKEN_SSH_BIN=${tmp}/fake-ssh.sh ${cli} ssh connect --workspace ws_1 --host cell.example.com --identity-file ${tmp}/id_connect --command "echo hi" >/dev/null
 ```
 
 The fake ssh was called with the expected arguments:
@@ -110,7 +111,7 @@ craken-cell@cell.example.com
 `ssh client-config` generates an OpenSSH config block for manual use:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json ssh client-config --workspace ws_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
+$ ${cli} ssh client-config --workspace ws_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
 Host craken-ws_1
   HostName cell.example.com
 ```

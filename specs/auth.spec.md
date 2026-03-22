@@ -10,18 +10,25 @@ commands read that token automatically. Logging out removes the file.
 
 The authentication flow is:
 
-1. `auth login --email EMAIL --key KEY` sends credentials to the control plane
-   and saves the returned session token locally.
-2. `whoami` reads the saved session and calls `/api/v1/whoami` to confirm the
-   authenticated identity.
-3. `auth logout` invalidates the server-side session and deletes the local
-   session file.
+1. `spaces auth login --email EMAIL --key KEY` sends credentials to the
+   control plane and saves the returned session token locally.
+2. `spaces whoami` reads the saved session and calls `/api/v1/whoami` to
+   confirm the authenticated identity.
+3. `spaces auth logout` invalidates the server-side session and deletes the
+   local session file.
 
-```run:shell -> $url, $cli, $tmp
-# Load test environment
+```run:shell -> $cli, $tmp
+# Create a wrapper that bakes in base URL and session file
 . .specdown/test-env
 tmp=$(mktemp -d)
-printf '%s\n' "$FAKE_URL" "$CRAKEN_BIN" "$tmp"
+cat > "$tmp/spaces" <<WRAPPER
+#!/bin/sh
+export CRAKEN_BASE_URL=$CRAKEN_BASE_URL
+export CRAKEN_SESSION_FILE=$tmp/session.json
+exec $SPACES "\$@"
+WRAPPER
+chmod +x "$tmp/spaces"
+printf '%s\n' "$tmp/spaces" "$tmp"
 ```
 
 > teardown
@@ -32,16 +39,16 @@ rm -rf ${tmp}
 
 ## Login
 
-`auth login` requires `--email` and `--key`. On success it prints the
-authenticated email and the session file path.
+On success, `auth login` prints the authenticated email and the session file
+path.
 
 ```run:shell
-$ ${cli} --base-url ${url} --session-file ${tmp}/session.json auth login --email alice@example.com --key test-key
+$ ${cli} auth login --email alice@example.com --key test-key
 authenticated as alice@example.com
 ...
 ```
 
-The session file is created with the base URL, email, and token:
+The session file is created:
 
 ```run:shell
 $ test -f ${tmp}/session.json && echo exists
@@ -53,7 +60,7 @@ exists
 `whoami` uses the saved session to query the control plane:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json whoami
+$ ${cli} whoami
 alice@example.com
 ```
 
@@ -61,12 +68,14 @@ alice@example.com
 
 Omitting `--email` or `--key` is an error:
 
-```run:shell !fail
-${cli} --base-url ${url} --session-file ${tmp}/no.json auth login --email alice@example.com 2>/dev/null
+```run:shell
+# Missing --key must fail
+! ${cli} auth login --email alice@example.com 2>/dev/null
 ```
 
-```run:shell !fail
-${cli} --base-url ${url} --session-file ${tmp}/no.json auth login --key test-key 2>/dev/null
+```run:shell
+# Missing --email must fail
+! ${cli} auth login --key test-key 2>/dev/null
 ```
 
 ## Logout
@@ -74,8 +83,8 @@ ${cli} --base-url ${url} --session-file ${tmp}/no.json auth login --key test-key
 `auth logout` removes the local session file:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json auth logout
-logged out; session removed from ${tmp}/session.json
+$ ${cli} auth logout
+...
 ```
 
 ```run:shell

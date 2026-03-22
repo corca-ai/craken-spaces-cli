@@ -32,9 +32,11 @@ fi
 
 fake_url="$(cat .specdown/fake-url.txt)"
 
-# Write env file for specs to source
+# Write env file for specs to source.
+# Sets CRAKEN_BASE_URL and CRAKEN_SESSION_FILE so specs
+# never need --base-url or --session-file flags.
 cat > .specdown/test-env <<EOF
-FAKE_URL=${fake_url}
 FAKE_PID=${fake_pid}
-CRAKEN_BIN=.specdown/spaces
+SPACES=.specdown/spaces
+export CRAKEN_BASE_URL=${fake_url}
 EOF

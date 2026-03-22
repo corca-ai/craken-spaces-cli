@@ -22,6 +22,9 @@ type cliConfig struct {
 const defaultPublicBaseURL = "https://agents.borca.ai"
 
 func defaultSessionPath() string {
+	if path := os.Getenv("CRAKEN_SESSION_FILE"); strings.TrimSpace(path) != "" {
+		return path
+	}
 	if base := os.Getenv("CRAKEN_CONFIG_DIR"); base != "" {
 		return filepath.Join(base, "session.json")
 	}

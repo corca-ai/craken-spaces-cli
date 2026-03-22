@@ -40,6 +40,7 @@ Local-state client:
 | Variable | Required | Description |
 |---|---|---|
 | `CRAKEN_BASE_URL` | no | Override the default public control-plane base URL (`https://agents.borca.ai`) |
+| `CRAKEN_SESSION_FILE` | no | Override local session file path |
 | `CRAKEN_SSH_HOST` | no | Override Cell-entry SSH host |
 | `CRAKEN_SSH_PORT` | no | Override Cell-entry SSH port (default: `22`) |
 | `CRAKEN_SSH_LOGIN_USER` | no | Cell-entry SSH login user (default: `craken-cell`) |
@@ -48,7 +49,7 @@ Local-state client:
 ## Development
 
 ```sh
-go build -o craken ./cmd/craken
+go build -o spaces ./cmd/craken
 go test ./...
 specdown run
 ```

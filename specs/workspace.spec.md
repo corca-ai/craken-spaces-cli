@@ -4,20 +4,28 @@ type: spec
 
 # Workspace Lifecycle
 
-Workspaces are the primary resource in Craken. Each workspace represents an
-isolated compute environment (a "Cell") with configurable resource limits for
-CPU, memory, disk, network egress, and LLM tokens.
+Workspaces are the primary resource in Craken Spaces. Each workspace
+represents an isolated compute environment (a "Cell") with configurable
+resource limits for CPU, memory, disk, network egress, and LLM tokens.
 
 The workspace lifecycle is: **create** -> **up** (running) -> **down** (stopped) -> **delete**.
 
 Workspace admins can also issue, list, and revoke member auth keys to grant
 scoped access to other users.
 
-```run:shell -> $url, $cli, $tmp
-# Load test environment
+```run:shell -> $cli, $tmp
+# Create wrapper and authenticate
 . .specdown/test-env
 tmp=$(mktemp -d)
-printf '%s\n' "$FAKE_URL" "$CRAKEN_BIN" "$tmp"
+cat > "$tmp/spaces" <<WRAPPER
+#!/bin/sh
+export CRAKEN_BASE_URL=$CRAKEN_BASE_URL
+export CRAKEN_SESSION_FILE=$tmp/session.json
+exec $SPACES "\$@"
+WRAPPER
+chmod +x "$tmp/spaces"
+"$tmp/spaces" auth login --email alice@example.com --key test-key >/dev/null
+printf '%s\n' "$tmp/spaces" "$tmp"
 ```
 
 > teardown
@@ -26,22 +34,13 @@ printf '%s\n' "$FAKE_URL" "$CRAKEN_BIN" "$tmp"
 rm -rf ${tmp}
 ```
 
-## Setup: authenticate
-
-All workspace commands require an active session.
-
-```run:shell
-# Log in as Alice
-${cli} --base-url ${url} --session-file ${tmp}/session.json auth login --email alice@example.com --key test-key >/dev/null
-```
-
 ## Create
 
 `workspace create --name NAME` creates a new workspace with default resource
 limits and prints the workspace ID:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace create --name my-workspace
+$ ${cli} workspace create --name my-workspace
 created workspace ws_1 (my-workspace)
 ```
 
@@ -50,7 +49,7 @@ created workspace ws_1 (my-workspace)
 `workspace list` shows a table of all workspaces the user can access:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace list | awk 'NR==1{print $1}'
+$ ${cli} workspace list | awk 'NR==1{print $1}'
 id
 ```
 
@@ -59,12 +58,12 @@ id
 `workspace up` starts a workspace; `workspace down` stops it:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace up --workspace ws_1
+$ ${cli} workspace up --workspace ws_1
 workspace ws_1 is running
 ```
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace down --workspace ws_1
+$ ${cli} workspace down --workspace ws_1
 workspace ws_1 is stopped
 ```
 
@@ -73,7 +72,7 @@ workspace ws_1 is stopped
 `workspace delete` permanently removes a workspace:
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace delete --workspace ws_1
+$ ${cli} workspace delete --workspace ws_1
 deleted workspace ws_1
 ```
 
@@ -86,25 +85,25 @@ workspace with delegated resource limits.
 
 ```run:shell
 # Create a workspace for member key tests
-${cli} --session-file ${tmp}/session.json workspace create --name key-test >/dev/null
+${cli} workspace create --name key-test >/dev/null
 ```
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace issue-member-auth-key --workspace ws_2 --email bob@example.com | head -1
+$ ${cli} workspace issue-member-auth-key --workspace ws_2 --email bob@example.com | head -1
 issued workspace member auth key 1 for bob@example.com
 ```
 
 ### List
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace member-auth-keys --workspace ws_2 | grep bob@example.com | awk '{print $2}'
+$ ${cli} workspace member-auth-keys --workspace ws_2 | grep bob@example.com | awk '{print $2}'
 bob@example.com
 ```
 
 ### Revoke
 
 ```run:shell
-$ ${cli} --session-file ${tmp}/session.json workspace revoke-member-auth-key --workspace ws_2 --id 1
+$ ${cli} workspace revoke-member-auth-key --workspace ws_2 --id 1
 revoked workspace member auth key 1
 ```
 
@@ -112,12 +111,14 @@ revoked workspace member auth key 1
 
 Workspace subcommands that target a specific workspace require `--workspace`:
 
-```run:shell !fail
-${cli} --session-file ${tmp}/session.json workspace up 2>/dev/null
+```run:shell
+# Missing --workspace must fail
+! ${cli} workspace up 2>/dev/null
 ```
 
 `workspace create` requires `--name`:
 
-```run:shell !fail
-${cli} --session-file ${tmp}/session.json workspace create 2>/dev/null
+```run:shell
+# Missing --name must fail
+! ${cli} workspace create 2>/dev/null
 ```
