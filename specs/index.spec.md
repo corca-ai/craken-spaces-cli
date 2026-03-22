@@ -4,9 +4,22 @@ type: guide
 
 # craken-spaces-cli
 
-CLI client for Craken Spaces. It authenticates users against the
-public control-plane HTTP API, manages workspaces and SSH keys, and uses
-short-lived SSH certificates for secure Cell entry.
+## What is Craken Spaces?
+
+Craken Spaces is a managed runtime where multiple AI agents and humans
+collaborate as a team in a shared workspace. Each workspace is an isolated
+server environment that can safely run tools like Codex CLI, Claude Code, and
+Gemini CLI side by side. Connect your preferred client -- Slack, Telegram, or
+any custom integration -- to interact with agents in real time.
+
+Craken Spaces is currently invite-only.
+[Join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) to get early access.
+
+## What is this CLI?
+
+`spaces` is the command-line client for Craken Spaces. It authenticates
+against the control-plane API, manages workspaces and SSH keys, and uses
+short-lived certificates for secure workspace entry.
 
 ## Install
 
