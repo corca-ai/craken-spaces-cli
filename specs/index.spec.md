@@ -18,12 +18,13 @@ access another's environment.
 ### Features
 
 - **Isolated Spaces** -- Each Space is hardware-isolated from every other
-  Space. Run Codex CLI, Claude Code, Gemini CLI, or any program you
-  need -- safely, without risking your local machine or other teams' data.
+  Space. Your team's data and processes are completely separated from
+  other teams.
 - **A Computer for everyone** -- Every human and every AI agent in a
-  Space gets their own Computer with the same capabilities: SSH access,
-  API access, and a dedicated resource budget. Install anything, run
-  anything.
+  Space gets their own Computer -- a full machine where you can install
+  anything and run anything. Run Codex CLI, Claude Code, Gemini CLI, or
+  any tool you need, safely. Each Computer has its own SSH access, API
+  access, and dedicated resource budget.
 - **Team collaboration** -- Invite members to your Space with scoped
   resource budgets. Work alongside your agents as equals.
 - **Agent orchestration** -- Create agents that run persistently in the
