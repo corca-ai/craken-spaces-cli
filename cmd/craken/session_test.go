@@ -19,13 +19,13 @@ func TestRequireBaseURLFallsBackToDefaultProdDomain(t *testing.T) {
 }
 
 func TestResolveBaseURLPrefersEnvironmentOverSession(t *testing.T) {
-	t.Setenv("SPACES_BASE_URL", "https://spaces-dev.borca.ai/")
+	t.Setenv("SPACES_BASE_URL", "https://staging.example.test/")
 
 	cfg := cliConfig{}
 	session := &localSession{BaseURL: "https://spaces.borca.ai"}
 
 	got := cfg.resolveBaseURL(session)
-	if got != "https://spaces-dev.borca.ai" {
+	if got != "https://staging.example.test" {
 		t.Fatalf("resolveBaseURL = %q, want env override", got)
 	}
 }
@@ -40,7 +40,7 @@ func TestDefaultSessionPathPrefersEnvVar(t *testing.T) {
 }
 
 func TestResolveBaseURLPrefersExplicitFlagOverEnvironment(t *testing.T) {
-	t.Setenv("SPACES_BASE_URL", "https://spaces-dev.borca.ai")
+	t.Setenv("SPACES_BASE_URL", "https://staging.example.test")
 
 	cfg := cliConfig{BaseURL: "https://spaces.borca.ai"}
 
@@ -148,6 +148,16 @@ func TestDefaultSessionPathUsesConfigDir(t *testing.T) {
 	got := defaultSessionPath()
 	if got != "/tmp/test-config/session.json" {
 		t.Fatalf("defaultSessionPath = %q, want config dir path", got)
+	}
+}
+
+func TestDefaultSessionPathFallsBackToSpacesConfigHome(t *testing.T) {
+	t.Setenv("SPACES_SESSION_FILE", "")
+	t.Setenv("SPACES_CONFIG_DIR", "")
+	t.Setenv("HOME", "/tmp/test-home")
+	got := defaultSessionPath()
+	if got != "/tmp/test-home/.config/spaces/session.json" {
+		t.Fatalf("defaultSessionPath = %q, want spaces config path", got)
 	}
 }
 

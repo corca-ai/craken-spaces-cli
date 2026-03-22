@@ -35,6 +35,9 @@ func newContractFakeServer(t *testing.T, operations map[string]fakeOperation) *c
 	if err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}
+	// The checked-in contract snapshot uses the public production base URL,
+	// but unit tests exercise handlers through a local httptest server.
+	doc.Servers = openapi3.Servers{{URL: "http://127.0.0.1"}}
 	if err := doc.Validate(loader.Context); err != nil {
 		t.Fatalf("OpenAPI validate failed: %v", err)
 	}

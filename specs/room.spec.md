@@ -47,7 +47,7 @@ overridden with flags like `--cpu-millis`, `--memory-mib`, `--llm-tokens-limit`:
 
 ```run:shell
 $ ${cli} room create --name my-room
-created room ws_1 (my-room)
+created room sp_1 (my-room)
 ```
 
 ### List
@@ -59,7 +59,7 @@ created_at. Here we show just the key columns:
 ```run:shell
 $ ${cli} room list | awk '{print $1, $2, $5}'
 id name state
-ws_1 my-room stopped
+sp_1 my-room stopped
 ```
 
 ### Up and Down
@@ -67,15 +67,15 @@ ws_1 my-room stopped
 Start a Room to make it available for SSH connections:
 
 ```run:shell
-$ ${cli} room up --room ws_1
-room ws_1 is running
+$ ${cli} room up --room sp_1
+room sp_1 is running
 ```
 
 Stop a Room when you're done to free resources:
 
 ```run:shell
-$ ${cli} room down --room ws_1
-room ws_1 is stopped
+$ ${cli} room down --room sp_1
+room sp_1 is stopped
 ```
 
 ### Delete
@@ -83,8 +83,8 @@ room ws_1 is stopped
 Permanently remove a Room and all its data:
 
 ```run:shell
-$ ${cli} room delete --room ws_1
-deleted room ws_1
+$ ${cli} room delete --room sp_1
+deleted room sp_1
 ```
 
 ## Admin: Inviting Members
@@ -104,7 +104,7 @@ ${cli} room create --name team-project >/dev/null
 ```
 
 ```run:shell
-$ ${cli} room issue-member-auth-key --room ws_2 --email bob@example.com | head -1
+$ ${cli} room issue-member-auth-key --room sp_2 --email bob@example.com | head -1
 issued room member auth key 1 for bob@example.com
 ```
 
@@ -116,7 +116,7 @@ View all issued keys for a Room, including their status. The full table
 has columns: id, email, status, expires_at, and issued_at. Here we show the key columns:
 
 ```run:shell
-$ ${cli} room member-auth-keys --room ws_2 | awk '{print $1, $2, $3}'
+$ ${cli} room member-auth-keys --room sp_2 | awk '{print $1, $2, $3}'
 id email status
 1 bob@example.com active
 ```
@@ -126,7 +126,7 @@ id email status
 Revoke a key to immediately deny the member's access:
 
 ```run:shell
-$ ${cli} room revoke-member-auth-key --room ws_2 --id 1
+$ ${cli} room revoke-member-auth-key --room sp_2 --id 1
 revoked room member auth key 1
 ```
 
@@ -146,7 +146,7 @@ spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
 spaces room list
 
 # 4. Connect to your Room
-spaces ssh connect --room ws_xxx
+spaces ssh connect --room sp_xxx
 ```
 
 Once inside, you have a full machine with your own filesystem, processes,

@@ -100,8 +100,8 @@ func TestRoomIssueMemberAuthKey(t *testing.T) {
 				"ok": true,
 				"auth_key": map[string]any{
 					"id":                7,
-					"space_id":      "ws_123",
-					"space_name":    "alpha",
+					"space_id":          "sp_123",
+					"space_name":        "alpha",
 					"issued_by_user_id": 1,
 					"issued_by_email":   "alice@example.com",
 					"invitee_email":     "bob@example.com",
@@ -138,7 +138,7 @@ func TestRoomIssueMemberAuthKey(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "ws_123", "--email", "bob@example.com"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "sp_123", "--email", "bob@example.com"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("room issue-member-auth-key code=%d stderr=%s", code, stderr.String())
 	}
@@ -153,7 +153,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 			Body: map[string]any{
 				"ok":          true,
 				"fingerprint": "SHA256:test",
-				"principal":   "craken-cell",
+				"principal":   "spaces-room",
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
 			},
@@ -182,7 +182,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	t.Setenv("SPACES_SSH_BIN", sshBin)
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--room", "ws_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--room", "sp_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("ssh connect code=%d stderr=%s", code, stderr.String())
 	}
@@ -199,7 +199,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(sshArgs)
-	for _, needle := range []string{"-o", "CertificateFile=" + sshCertificateFileForIdentity(identityFile), "-i", identityFile, "craken-cell@cell.example.com", "ws_123 -- echo hi"} {
+	for _, needle := range []string{"-o", "CertificateFile=" + sshCertificateFileForIdentity(identityFile), "-i", identityFile, "spaces-room@cell.example.com", "sp_123 -- echo hi"} {
 		if !strings.Contains(got, needle) {
 			t.Fatalf("ssh args missing %q:\n%s", needle, got)
 		}
@@ -207,7 +207,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 }
 
 func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
-	t.Setenv("SPACES_BASE_URL", "https://spaces-dev.borca.ai")
+	t.Setenv("SPACES_BASE_URL", "https://staging.example.test")
 
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 	if err := saveSession(sessionFile, localSession{
@@ -227,13 +227,13 @@ func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
 	code := run([]string{
 		"--session-file", sessionFile,
 		"ssh", "client-config",
-		"--room", "ws_123",
+		"--room", "sp_123",
 		"--identity-file", identityFile,
 	}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("ssh client-config code=%d stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "HostName spaces-dev.borca.ai") {
+	if !strings.Contains(stdout.String(), "HostName staging.example.test") {
 		t.Fatalf("stdout missing env-resolved host:\n%s", stdout.String())
 	}
 }
@@ -291,9 +291,9 @@ func TestRoomUpRequiresRoomFlag(t *testing.T) {
 }
 
 func TestRoomCreateListUpDownDelete(t *testing.T) {
-	workspaceBody := map[string]any{
-		"id": "ws_1", "name": "test-room", "role": "admin",
-		"owner_user_id": 1,
+	spaceBody := map[string]any{
+		"id": "sp_1", "name": "test-room", "role": "admin",
+		"owner_user_id":  1,
 		"runtime_driver": "mock", "runtime_state": "stopped", "runtime_meta": "",
 		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
@@ -303,20 +303,20 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 	}
 	server := newContractFakeServer(t, map[string]fakeOperation{
 		"createSpace": {
-			Body: map[string]any{"ok": true, "space": workspaceBody},
+			Body: map[string]any{"ok": true, "space": spaceBody},
 		},
 		"listSpaces": {
 			Body: map[string]any{
-				"ok":         true,
-				"spaces": []any{workspaceBody},
+				"ok":     true,
+				"spaces": []any{spaceBody},
 			},
 		},
 		"startSpace": {
 			Body: map[string]any{
 				"ok": true,
 				"space": map[string]any{
-					"id": "ws_1", "name": "test-room", "role": "admin",
-					"owner_user_id": 1,
+					"id": "sp_1", "name": "test-room", "role": "admin",
+					"owner_user_id":  1,
 					"runtime_driver": "mock", "runtime_state": "running", "runtime_meta": "",
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
@@ -330,8 +330,8 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 			Body: map[string]any{
 				"ok": true,
 				"space": map[string]any{
-					"id": "ws_1", "name": "test-room", "role": "admin",
-					"owner_user_id": 1,
+					"id": "sp_1", "name": "test-room", "role": "admin",
+					"owner_user_id":  1,
 					"runtime_driver": "mock", "runtime_state": "stopped", "runtime_meta": "",
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
@@ -375,7 +375,7 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 	// Up
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "room", "up", "--room", "ws_1"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "room", "up", "--room", "sp_1"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("room up code=%d stderr=%s", code, stderr.String())
 	}
@@ -386,7 +386,7 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 	// Down
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "room", "down", "--room", "ws_1"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "room", "down", "--room", "sp_1"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("room down code=%d stderr=%s", code, stderr.String())
 	}
@@ -397,7 +397,7 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 	// Delete
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "room", "delete", "--room", "ws_1"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "room", "delete", "--room", "sp_1"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("room delete code=%d stderr=%s", code, stderr.String())
 	}
@@ -479,7 +479,7 @@ func TestSSHIssueCert(t *testing.T) {
 			Body: map[string]any{
 				"ok":          true,
 				"fingerprint": "SHA256:test",
-				"principal":   "craken-cell",
+				"principal":   "spaces-room",
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
 			},

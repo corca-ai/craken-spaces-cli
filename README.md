@@ -23,10 +23,10 @@ The CLI defaults to:
 https://spaces.borca.ai
 ```
 
-Use the dev host or another deployment with:
+Use another deployment with:
 
 ```sh
-export SPACES_BASE_URL=https://spaces-dev.borca.ai
+export SPACES_BASE_URL=https://your-deployment.example.com
 spaces <command> [options]
 spaces help
 ```

@@ -112,9 +112,9 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 	case "client-config":
 		fs := flag.NewFlagSet("ssh client-config", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("room", "", "room ID to target")
+		roomID := fs.String("room", "", "room ID to target")
 		host := fs.String("host", "", "SSH host name")
-		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
+		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
 		alias := fs.String("alias", "", "SSH host alias")
@@ -124,7 +124,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 			}
 			return 2
 		}
-		if strings.TrimSpace(*workspaceID) == "" {
+		if strings.TrimSpace(*roomID) == "" {
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
@@ -134,7 +134,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 			return 1
 		}
 		if strings.TrimSpace(*alias) == "" {
-			*alias = "craken-" + *workspaceID
+			*alias = "spaces-" + *roomID
 		}
 		if strings.TrimSpace(*identityFile) == "" {
 			*identityFile, _, err = resolveSSHIdentityFile("")
@@ -151,7 +151,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 		fmt.Fprintf(stdout, "  IdentitiesOnly yes\n")
 		fmt.Fprintf(stdout, "  IdentityFile %s\n", *identityFile)
 		fmt.Fprintf(stdout, "  CertificateFile %s\n", sshCertificateFileForIdentity(*identityFile))
-		fmt.Fprintf(stdout, "  RemoteCommand %s\n", *workspaceID)
+		fmt.Fprintf(stdout, "  RemoteCommand %s\n", *roomID)
 		fmt.Fprintf(stdout, "  ServerAliveInterval 30\n")
 		fmt.Fprintf(stdout, "  ServerAliveCountMax 3\n")
 		return 0
@@ -159,9 +159,9 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 	case "connect":
 		fs := flag.NewFlagSet("ssh connect", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("room", "", "room ID to target")
+		roomID := fs.String("room", "", "room ID to target")
 		host := fs.String("host", "", "SSH host name")
-		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
+		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
 		certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
@@ -172,7 +172,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 			}
 			return 2
 		}
-		if strings.TrimSpace(*workspaceID) == "" {
+		if strings.TrimSpace(*roomID) == "" {
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
@@ -200,7 +200,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 			"-i", issued.IdentityFile,
 			fmt.Sprintf("%s@%s", *user, resolvedHost),
 		}
-		target := *workspaceID
+		target := *roomID
 		if strings.TrimSpace(*remoteCommand) != "" {
 			target = target + " -- " + *remoteCommand
 		}
@@ -234,7 +234,7 @@ func cmdSSHIssueCert(client apiClient, argv []string, stdout, stderr io.Writer) 
 	fs := flag.NewFlagSet("ssh issue-cert", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	identityFile := fs.String("identity-file", "", "SSH private key path")
-	principal := fs.String("principal", envOrDefault("SPACES_SSH_LOGIN_USER", "craken-cell"), "certificate principal/login user")
+	principal := fs.String("principal", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "certificate principal/login user")
 	certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
 	if err := fs.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {

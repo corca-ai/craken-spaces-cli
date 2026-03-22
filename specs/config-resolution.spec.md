@@ -17,7 +17,7 @@ The session file path is resolved similarly:
 1. **`--session-file` flag** (highest)
 2. **`SPACES_SESSION_FILE` environment variable**
 3. **`SPACES_CONFIG_DIR`** / `session.json`
-4. **Default** `~/.config/craken/session.json`
+4. **Default** `~/.config/spaces/session.json`
 
 This spec exercises the precedence rules directly, so it uses the raw binary
 with explicit environment variables instead of the wrapper.
@@ -53,12 +53,12 @@ authenticated as bob@example.com
 ## Environment overrides session
 
 When `SPACES_BASE_URL` is set, it takes precedence over the base URL saved in
-the session file. Here we point the env var to a dev URL and confirm the
-generated SSH config picks it up as the hostname:
+the session file. Here we point the env var to a non-production URL and confirm
+the generated SSH config picks it up as the hostname:
 
 ```run:shell
-$ SPACES_BASE_URL=https://spaces-dev.borca.ai SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test | grep HostName
-  HostName spaces-dev.borca.ai
+$ SPACES_BASE_URL=https://staging.example.test SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test | grep HostName
+  HostName staging.example.test
 ```
 
 ## Default base URL
@@ -79,13 +79,13 @@ SSH-related environment variables override defaults:
 |----------|---------|-------------|
 | `SPACES_SSH_HOST` | derived from base URL | Room-entry SSH host |
 | `SPACES_SSH_PORT` | `22` | Room-entry SSH port |
-| `SPACES_SSH_LOGIN_USER` | `craken-cell` | SSH login user |
+| `SPACES_SSH_LOGIN_USER` | `spaces-room` | SSH login user |
 | `SPACES_SSH_BIN` | `ssh` from PATH | local ssh binary |
 
 Setting `SPACES_SSH_LOGIN_USER` overrides the default login user in
 the generated SSH config:
 
 ```run:shell
-$ SPACES_SSH_LOGIN_USER=custom-user SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
+$ SPACES_SSH_LOGIN_USER=custom-user SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
   User custom-user
 ```

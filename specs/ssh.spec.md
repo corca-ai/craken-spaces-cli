@@ -74,11 +74,11 @@ removed ssh key SHA256:fake1
 ### Quick connect
 
 `ssh connect` is the easiest way to enter a Room. It handles certificate
-issuance automatically. The `--room` flag takes the Room ID (e.g. `ws_xxx`)
+issuance automatically. The `--room` flag takes the Room ID (e.g. `sp_xxx`)
 shown by `room create` or `room list`:
 
 ```sh
-spaces ssh connect --room ws_xxx
+spaces ssh connect --room sp_xxx
 ```
 
 Behind the scenes, the CLI:
@@ -94,13 +94,13 @@ If you prefer to use `ssh` directly, generate an OpenSSH config block and
 paste it into `~/.ssh/config`:
 
 ```run:shell
-$ ${cli} ssh client-config --room ws_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
-Host craken-ws_1
+$ ${cli} ssh client-config --room sp_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
+Host spaces-sp_1
   HostName cell.example.com
 ```
 
 After adding this to your SSH config, you can connect with just
-`ssh craken-ws_1`.
+`ssh spaces-sp_1`.
 
 ## Manual Certificate Issuance
 

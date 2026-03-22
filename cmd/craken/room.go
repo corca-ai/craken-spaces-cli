@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type workspaceRecord struct {
+type spaceRecord struct {
 	ID              string `json:"id"`
 	Name            string `json:"name"`
 	Role            string `json:"role"`
@@ -78,9 +78,9 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			return 2
 		}
 		var response struct {
-			OK        bool            `json:"ok"`
-			Error     string          `json:"error"`
-			Workspace workspaceRecord `json:"space"`
+			OK    bool        `json:"ok"`
+			Error string      `json:"error"`
+			Space spaceRecord `json:"space"`
 		}
 		if err := client.doJSON("POST", "/api/v1/spaces", map[string]any{
 			"name":              *name,
@@ -94,34 +94,34 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "created room %s (%s)\n", response.Workspace.ID, response.Workspace.Name)
+		fmt.Fprintf(stdout, "created room %s (%s)\n", response.Space.ID, response.Space.Name)
 		return 0
 
 	case "list":
 		var response struct {
-			OK         bool              `json:"ok"`
-			Error      string            `json:"error"`
-			Workspaces []workspaceRecord `json:"spaces"`
+			OK     bool          `json:"ok"`
+			Error  string        `json:"error"`
+			Spaces []spaceRecord `json:"spaces"`
 		}
 		if err := client.doJSON("GET", "/api/v1/spaces", nil, &response); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		rows := make([][]string, 0, len(response.Workspaces))
-		for i := range response.Workspaces {
-			w := &response.Workspaces[i]
+		rows := make([][]string, 0, len(response.Spaces))
+		for i := range response.Spaces {
+			s := &response.Spaces[i]
 			rows = append(rows, []string{
-				w.ID,
-				w.Name,
-				w.Role,
-				w.RuntimeDriver,
-				w.RuntimeState,
-				strconv.Itoa(w.CPUMillis),
-				strconv.Itoa(w.MemoryMiB),
-				strconv.Itoa(w.DiskMB),
-				strconv.Itoa(w.NetworkEgressMB),
-				fmt.Sprintf("%d/%d", w.LLMTokensUsed, w.LLMTokensLimit),
-				w.CreatedAt,
+				s.ID,
+				s.Name,
+				s.Role,
+				s.RuntimeDriver,
+				s.RuntimeState,
+				strconv.Itoa(s.CPUMillis),
+				strconv.Itoa(s.MemoryMiB),
+				strconv.Itoa(s.DiskMB),
+				strconv.Itoa(s.NetworkEgressMB),
+				fmt.Sprintf("%d/%d", s.LLMTokensUsed, s.LLMTokensLimit),
+				s.CreatedAt,
 			})
 		}
 		printTable(stdout, []string{"id", "name", "role", "driver", "state", "cpu", "memory", "disk", "net", "llm_tokens", "created_at"}, rows)
@@ -130,14 +130,14 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 	case "up", "down":
 		fs := flag.NewFlagSet("room "+argv[0], flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("room", "", "room ID")
+		roomID := fs.String("room", "", "room ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*workspaceID) == "" {
+		if strings.TrimSpace(*roomID) == "" {
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
@@ -146,42 +146,42 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			action = "down"
 		}
 		var response struct {
-			OK        bool            `json:"ok"`
-			Error     string          `json:"error"`
-			Workspace workspaceRecord `json:"space"`
+			OK    bool        `json:"ok"`
+			Error string      `json:"error"`
+			Space spaceRecord `json:"space"`
 		}
-		if err := client.doJSON("POST", "/api/v1/spaces/"+*workspaceID+"/"+action, nil, &response); err != nil {
+		if err := client.doJSON("POST", "/api/v1/spaces/"+*roomID+"/"+action, nil, &response); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "room %s is %s\n", response.Workspace.ID, response.Workspace.RuntimeState)
+		fmt.Fprintf(stdout, "room %s is %s\n", response.Space.ID, response.Space.RuntimeState)
 		return 0
 
 	case "delete":
 		fs := flag.NewFlagSet("room delete", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("room", "", "room ID")
+		roomID := fs.String("room", "", "room ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*workspaceID) == "" {
+		if strings.TrimSpace(*roomID) == "" {
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
-		if err := client.doJSON("DELETE", "/api/v1/spaces/"+*workspaceID+"/delete", nil, nil); err != nil {
+		if err := client.doJSON("DELETE", "/api/v1/spaces/"+*roomID+"/delete", nil, nil); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "deleted room %s\n", *workspaceID)
+		fmt.Fprintf(stdout, "deleted room %s\n", *roomID)
 		return 0
 
 	case "issue-member-auth-key":
 		fs := flag.NewFlagSet("room issue-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("room", "", "room ID")
+		roomID := fs.String("room", "", "room ID")
 		email := fs.String("email", "", "room member email address")
 		expiresHours := fs.Int("expires-hours", 24*7, "lifetime in hours")
 		cpuMillis := fs.Int("cpu-millis", 1000, "delegated CPU ceiling")
@@ -195,7 +195,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			}
 			return 2
 		}
-		if strings.TrimSpace(*workspaceID) == "" || strings.TrimSpace(*email) == "" {
+		if strings.TrimSpace(*roomID) == "" || strings.TrimSpace(*email) == "" {
 			fmt.Fprintln(stderr, "error: --room and --email are required")
 			return 2
 		}
@@ -205,7 +205,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			AuthKey memberAuthKeyRecord `json:"auth_key"`
 			Key     string              `json:"key"`
 		}
-		if err := client.doJSON("POST", "/api/v1/spaces/"+*workspaceID+"/member-auth-keys", map[string]any{
+		if err := client.doJSON("POST", "/api/v1/spaces/"+*roomID+"/member-auth-keys", map[string]any{
 			"email":             *email,
 			"expires_hours":     *expiresHours,
 			"cpu_millis":        *cpuMillis,
@@ -225,14 +225,14 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 	case "member-auth-keys":
 		fs := flag.NewFlagSet("room member-auth-keys", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("room", "", "room ID")
+		roomID := fs.String("room", "", "room ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*workspaceID) == "" {
+		if strings.TrimSpace(*roomID) == "" {
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
@@ -241,7 +241,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			Error    string                `json:"error"`
 			AuthKeys []memberAuthKeyRecord `json:"auth_keys"`
 		}
-		if err := client.doJSON("GET", "/api/v1/spaces/"+*workspaceID+"/member-auth-keys", nil, &response); err != nil {
+		if err := client.doJSON("GET", "/api/v1/spaces/"+*roomID+"/member-auth-keys", nil, &response); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
@@ -269,7 +269,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 	case "revoke-member-auth-key":
 		fs := flag.NewFlagSet("room revoke-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("room", "", "room ID")
+		roomID := fs.String("room", "", "room ID")
 		authKeyID := fs.Int64("id", 0, "auth key ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
@@ -277,11 +277,11 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			}
 			return 2
 		}
-		if strings.TrimSpace(*workspaceID) == "" || *authKeyID <= 0 {
+		if strings.TrimSpace(*roomID) == "" || *authKeyID <= 0 {
 			fmt.Fprintln(stderr, "error: --room and --id are required")
 			return 2
 		}
-		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/spaces/%s/member-auth-keys/%d", *workspaceID, *authKeyID), nil, nil); err != nil {
+		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/spaces/%s/member-auth-keys/%d", *roomID, *authKeyID), nil, nil); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}

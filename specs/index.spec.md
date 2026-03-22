@@ -71,14 +71,14 @@ spaces auth login --email you@example.com --key YOUR_AUTH_KEY
 
 # 2. Create a Room
 spaces room create --name my-project
-# → created room ws_xxx (my-project)
+# → created room sp_xxx (my-project)
 
 # 3. Register your SSH key and connect
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
-spaces ssh connect --room ws_xxx
+spaces ssh connect --room sp_xxx
 
 # 4. Invite a team member with scoped resource limits
-spaces room issue-member-auth-key --room ws_xxx --email teammate@example.com
+spaces room issue-member-auth-key --room sp_xxx --email teammate@example.com
 # → share the printed auth key with your teammate
 ```
 
@@ -98,7 +98,7 @@ spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
 spaces room list
 
 # 4. Connect to your Room
-spaces ssh connect --room ws_xxx
+spaces ssh connect --room sp_xxx
 ```
 
 ## Feature Specifications

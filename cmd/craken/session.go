@@ -30,9 +30,9 @@ func defaultSessionPath() string {
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".craken-session.json"
+		return ".spaces-session.json"
 	}
-	return filepath.Join(home, ".config", "craken", "session.json")
+	return filepath.Join(home, ".config", "spaces", "session.json")
 }
 
 func loadSession(path string) (*localSession, error) {

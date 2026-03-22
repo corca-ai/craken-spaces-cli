@@ -20,7 +20,7 @@ func run(argv []string, stdout, stderr io.Writer) int {
 	root.SetOutput(stderr)
 	root.Usage = func() { printUsage(root.Output()) }
 
-	baseURL := root.String("base-url", "", "Craken public control-plane base URL (default: https://spaces.borca.ai)")
+	baseURL := root.String("base-url", "", "Spaces public control-plane base URL (default: https://spaces.borca.ai)")
 	sessionFile := root.String("session-file", defaultSessionPath(), "path to the local session file")
 	if err := root.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -187,7 +187,7 @@ Environment:
   SPACES_SESSION_FILE   Override local session file path
   SPACES_SSH_HOST       Override SSH host for Room entry
   SPACES_SSH_PORT       Override SSH port (default: 22)
-  SPACES_SSH_LOGIN_USER Override SSH login user (default: craken-cell)
+  SPACES_SSH_LOGIN_USER Override SSH login user (default: spaces-room)
   SPACES_SSH_BIN        Override ssh binary path
 `)
 }

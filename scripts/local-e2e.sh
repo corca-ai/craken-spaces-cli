@@ -14,8 +14,8 @@ done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
-managed_root="${CRAKEN_MANAGED_AGENTS_DIR:-${repo_root}/../craken-managed-agents}"
-if [[ ! -f "${managed_root}/go.mod" || ! -f "${managed_root}/cmd/craken/main.go" ]]; then
+managed_root="${SPACES_MANAGED_AGENTS_DIR:-${CRAKEN_MANAGED_AGENTS_DIR:-${repo_root}/../craken-managed-agents}}"
+if [[ ! -f "${managed_root}/go.mod" || ! -f "${managed_root}/cmd/spaces/main.go" ]]; then
 	echo "managed-agents checkout not found: ${managed_root}" >&2
 	exit 1
 fi
@@ -52,8 +52,8 @@ bob_session="${tmp_dir}/bob.session.json"
 charlie_session="${tmp_dir}/charlie.session.json"
 alice_key="${tmp_dir}/alice_ed25519"
 ca_key="${tmp_dir}/ssh-user-ca"
-craken_bin="${tmp_dir}/craken"
-craken_cli_bin="${tmp_dir}/craken-spaces-cli"
+spaces_control_bin="${tmp_dir}/spaces-control"
+spaces_cli_bin="${tmp_dir}/craken-spaces-cli"
 
 cleanup() {
 	set +e
@@ -65,24 +65,24 @@ cleanup() {
 }
 trap cleanup EXIT
 
-(cd "${managed_root}" && go build -o "${craken_bin}" ./cmd/craken)
-(cd "${repo_root}" && go build -o "${craken_cli_bin}" ./cmd/craken)
+(cd "${managed_root}" && go build -o "${spaces_control_bin}" ./cmd/spaces)
+(cd "${repo_root}" && go build -o "${spaces_cli_bin}" ./cmd/craken)
 
-export CRAKEN_EMAIL_MODE=stdout
-export CRAKEN_SSH_CA_KEY="${ca_key}"
+export SPACES_EMAIL_MODE=stdout
+export SPACES_SSH_CA_KEY="${ca_key}"
 
-"${craken_bin}" --db "${db_path}" init-db --set-admin-key admin-secret >/dev/null
-"${craken_bin}" --db "${db_path}" ssh ca-init --ca-key "${ca_key}" >/dev/null
+"${spaces_control_bin}" --db "${db_path}" init-db --set-admin-key admin-secret >/dev/null
+"${spaces_control_bin}" --db "${db_path}" ssh ca-init --ca-key "${ca_key}" >/dev/null
 
-"${craken_bin}" --db "${db_path}" proxy serve \
+"${spaces_control_bin}" --db "${db_path}" proxy serve \
 	--listen "127.0.0.1:${proxy_port}" \
 	--upstream-base-url "http://127.0.0.1:9" \
 	--upstream-api-key "disabled-no-upstream-key" >"${proxy_log}" 2>&1 &
 proxy_pid=$!
 wait_for_http "${proxy_base_url}/healthz"
 
-alice_request="$("${craken_bin}" --db "${db_path}" request-access --email alice@example.com --name Alice | awk '/^created access request / {print $4}')"
-alice_approval="$("${craken_bin}" --db "${db_path}" --admin-key admin-secret admin approve --application-id "${alice_request}")"
+alice_request="$("${spaces_control_bin}" --db "${db_path}" request-access --email alice@example.com --name Alice | awk '/^created access request / {print $4}')"
+alice_approval="$("${spaces_control_bin}" --db "${db_path}" --admin-key admin-secret admin approve --application-id "${alice_request}")"
 alice_auth_key="$(printf '%s\n' "${alice_approval}" | awk -F': ' '/^Auth key: / {print $2}')"
 if [[ -z "${alice_auth_key}" ]]; then
 	echo "failed to parse Alice auth key" >&2
@@ -92,44 +92,44 @@ fi
 
 ssh-keygen -q -t ed25519 -N '' -f "${alice_key}"
 
-"${craken_cli_bin}" --base-url "${proxy_base_url}" --session-file "${alice_session}" auth login \
+"${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${alice_session}" auth login \
 	--email alice@example.com \
 	--key "${alice_auth_key}" >/dev/null
 
-if [[ "$("${craken_cli_bin}" --session-file "${alice_session}" whoami)" != "alice@example.com" ]]; then
+if [[ "$("${spaces_cli_bin}" --session-file "${alice_session}" whoami)" != "alice@example.com" ]]; then
 	echo "whoami did not return alice@example.com" >&2
 	exit 1
 fi
 
-add_key_output="$("${craken_cli_bin}" --session-file "${alice_session}" ssh add-key --name alice-laptop --public-key-file "${alice_key}.pub")"
+add_key_output="$("${spaces_cli_bin}" --session-file "${alice_session}" ssh add-key --name alice-laptop --public-key-file "${alice_key}.pub")"
 alice_fingerprint="$(printf '%s\n' "${add_key_output}" | awk '/^registered ssh key / {print $4}')"
 if [[ -z "${alice_fingerprint}" ]]; then
 	echo "failed to parse Alice SSH key fingerprint" >&2
 	printf '%s\n' "${add_key_output}" >&2
 	exit 1
 fi
-if ! "${craken_cli_bin}" --session-file "${alice_session}" ssh list-keys | grep -q "alice-laptop"; then
+if ! "${spaces_cli_bin}" --session-file "${alice_session}" ssh list-keys | grep -q "alice-laptop"; then
 	echo "ssh list-keys did not contain alice-laptop" >&2
 	exit 1
 fi
 
-create_output="$("${craken_cli_bin}" --session-file "${alice_session}" workspace create --name cli-smoke)"
-workspace_id="$(printf '%s\n' "${create_output}" | awk '/^created workspace / {print $3}')"
-if [[ -z "${workspace_id}" ]]; then
-	echo "failed to parse workspace id" >&2
+create_output="$("${spaces_cli_bin}" --session-file "${alice_session}" room create --name cli-smoke)"
+room_id="$(printf '%s\n' "${create_output}" | awk '/^created room / {print $3}')"
+if [[ -z "${room_id}" ]]; then
+	echo "failed to parse room id" >&2
 	printf '%s\n' "${create_output}" >&2
 	exit 1
 fi
 
-if ! "${craken_cli_bin}" --session-file "${alice_session}" workspace list | grep -q "${workspace_id}"; then
-	echo "Alice workspace list does not contain ${workspace_id}" >&2
+if ! "${spaces_cli_bin}" --session-file "${alice_session}" room list | grep -q "${room_id}"; then
+	echo "Alice room list does not contain ${room_id}" >&2
 	exit 1
 fi
 
-"${craken_cli_bin}" --session-file "${alice_session}" workspace up --workspace "${workspace_id}" >/dev/null
-"${craken_cli_bin}" --session-file "${alice_session}" workspace down --workspace "${workspace_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" room up --room "${room_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" room down --room "${room_id}" >/dev/null
 
-issue_output="$("${craken_cli_bin}" --session-file "${alice_session}" workspace issue-member-auth-key --workspace "${workspace_id}" --email bob@example.com)"
+issue_output="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email bob@example.com)"
 bob_auth_key="$(printf '%s\n' "${issue_output}" | awk -F'=' '/^auth key=/ {print $2}')"
 if [[ -z "${bob_auth_key}" ]]; then
 	echo "failed to parse Bob auth key" >&2
@@ -137,13 +137,13 @@ if [[ -z "${bob_auth_key}" ]]; then
 	exit 1
 fi
 
-if ! "${craken_cli_bin}" --session-file "${alice_session}" workspace member-auth-keys --workspace "${workspace_id}" | grep -q "bob@example.com"; then
+if ! "${spaces_cli_bin}" --session-file "${alice_session}" room member-auth-keys --room "${room_id}" | grep -q "bob@example.com"; then
 	echo "member-auth-keys did not contain bob@example.com" >&2
 	exit 1
 fi
 
-charlie_issue="$("${craken_cli_bin}" --session-file "${alice_session}" workspace issue-member-auth-key --workspace "${workspace_id}" --email charlie@example.com)"
-charlie_key_id="$(printf '%s\n' "${charlie_issue}" | awk '/^issued workspace member auth key / {print $6}')"
+charlie_issue="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email charlie@example.com)"
+charlie_key_id="$(printf '%s\n' "${charlie_issue}" | awk '/^issued room member auth key / {print $6}')"
 charlie_auth_key="$(printf '%s\n' "${charlie_issue}" | awk -F'=' '/^auth key=/ {print $2}')"
 if [[ -z "${charlie_key_id}" || -z "${charlie_auth_key}" ]]; then
 	echo "failed to parse Charlie auth key metadata" >&2
@@ -151,45 +151,45 @@ if [[ -z "${charlie_key_id}" || -z "${charlie_auth_key}" ]]; then
 	exit 1
 fi
 
-"${craken_cli_bin}" --session-file "${alice_session}" workspace revoke-member-auth-key --workspace "${workspace_id}" --id "${charlie_key_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" room revoke-member-auth-key --room "${room_id}" --id "${charlie_key_id}" >/dev/null
 
-if "${craken_cli_bin}" --base-url "${proxy_base_url}" --session-file "${charlie_session}" auth login \
+if "${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${charlie_session}" auth login \
 	--email charlie@example.com \
 	--key "${charlie_auth_key}" >/dev/null 2>&1; then
-	echo "Charlie unexpectedly logged in with a revoked workspace member auth key" >&2
+	echo "Charlie unexpectedly logged in with a revoked room member auth key" >&2
 	exit 1
 fi
 
-"${craken_cli_bin}" --base-url "${proxy_base_url}" --session-file "${bob_session}" auth login \
+"${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${bob_session}" auth login \
 	--email bob@example.com \
 	--key "${bob_auth_key}" >/dev/null
 
-if ! "${craken_cli_bin}" --session-file "${bob_session}" workspace list | grep -q "${workspace_id}"; then
-	echo "Bob workspace list does not contain ${workspace_id}" >&2
+if ! "${spaces_cli_bin}" --session-file "${bob_session}" room list | grep -q "${room_id}"; then
+	echo "Bob room list does not contain ${room_id}" >&2
 	exit 1
 fi
 
-if "${craken_cli_bin}" --session-file "${bob_session}" workspace create --name should-fail >/dev/null 2>&1; then
-	echo "Bob unexpectedly created a workspace with no top-level grant" >&2
+if "${spaces_cli_bin}" --session-file "${bob_session}" room create --name should-fail >/dev/null 2>&1; then
+	echo "Bob unexpectedly created a room with no top-level grant" >&2
 	exit 1
 fi
 
-if "${craken_cli_bin}" --session-file "${bob_session}" workspace issue-member-auth-key --workspace "${workspace_id}" --email eve@example.com >/dev/null 2>&1; then
-	echo "Bob unexpectedly issued a workspace member auth key" >&2
+if "${spaces_cli_bin}" --session-file "${bob_session}" room issue-member-auth-key --room "${room_id}" --email eve@example.com >/dev/null 2>&1; then
+	echo "Bob unexpectedly issued a room member auth key" >&2
 	exit 1
 fi
 
-"${craken_cli_bin}" --session-file "${alice_session}" ssh issue-cert --identity-file "${alice_key}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" ssh issue-cert --identity-file "${alice_key}" >/dev/null
 test -f "${alice_key}-cert.pub"
 grep -q "ssh-ed25519-cert-v01@openssh.com" "${alice_key}-cert.pub"
 
-"${craken_cli_bin}" --session-file "${alice_session}" ssh remove-key --fingerprint "${alice_fingerprint}" >/dev/null
-if "${craken_cli_bin}" --session-file "${alice_session}" ssh list-keys | grep -q "alice-laptop"; then
+"${spaces_cli_bin}" --session-file "${alice_session}" ssh remove-key --fingerprint "${alice_fingerprint}" >/dev/null
+if "${spaces_cli_bin}" --session-file "${alice_session}" ssh list-keys | grep -q "alice-laptop"; then
 	echo "ssh remove-key did not remove alice-laptop" >&2
 	exit 1
 fi
 
-"${craken_cli_bin}" --session-file "${bob_session}" auth logout >/dev/null
+"${spaces_cli_bin}" --session-file "${bob_session}" auth logout >/dev/null
 if [[ -f "${bob_session}" ]]; then
 	echo "logout did not remove Bob session file" >&2
 	exit 1

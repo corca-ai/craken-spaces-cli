@@ -17,7 +17,7 @@ func TestRoomMemberAuthKeysList(t *testing.T) {
 				"auth_keys": []any{
 					map[string]any{
 						"id":                1,
-						"space_id":          "ws_1",
+						"space_id":          "sp_1",
 						"space_name":        "alpha",
 						"issued_by_user_id": 1,
 						"issued_by_email":   "alice@example.com",
@@ -34,7 +34,7 @@ func TestRoomMemberAuthKeysList(t *testing.T) {
 					},
 					map[string]any{
 						"id":                2,
-						"space_id":          "ws_1",
+						"space_id":          "sp_1",
 						"space_name":        "alpha",
 						"issued_by_user_id": 1,
 						"issued_by_email":   "alice@example.com",
@@ -65,7 +65,7 @@ func TestRoomMemberAuthKeysList(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "room", "member-auth-keys", "--room", "ws_1"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "room", "member-auth-keys", "--room", "sp_1"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("room member-auth-keys code=%d stderr=%s", code, stderr.String())
 	}
@@ -111,7 +111,7 @@ func TestRoomRevokeMemberAuthKey(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "room", "revoke-member-auth-key", "--room", "ws_1", "--id", "42"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "room", "revoke-member-auth-key", "--room", "sp_1", "--id", "42"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("room revoke-member-auth-key code=%d stderr=%s", code, stderr.String())
 	}
@@ -131,7 +131,7 @@ func TestRoomRevokeMemberAuthKeyRequiresFlags(t *testing.T) {
 		args []string
 	}{
 		{"missing both", []string{"--session-file", sessionFile, "room", "revoke-member-auth-key"}},
-		{"missing id", []string{"--session-file", sessionFile, "room", "revoke-member-auth-key", "--room", "ws_1"}},
+		{"missing id", []string{"--session-file", sessionFile, "room", "revoke-member-auth-key", "--room", "sp_1"}},
 		{"missing room", []string{"--session-file", sessionFile, "room", "revoke-member-auth-key", "--id", "1"}},
 	}
 	for _, tc := range tests {
@@ -204,7 +204,7 @@ func TestRoomIssueMemberAuthKeyRequiresFlags(t *testing.T) {
 		args []string
 	}{
 		{"missing both", []string{"--session-file", sessionFile, "room", "issue-member-auth-key"}},
-		{"missing email", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "ws_1"}},
+		{"missing email", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "sp_1"}},
 		{"missing room", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--email", "bob@example.com"}},
 	}
 	for _, tc := range tests {
@@ -276,8 +276,8 @@ func TestRoomCreatePayload(t *testing.T) {
 			Body: map[string]any{
 				"ok": true,
 				"space": map[string]any{
-					"id": "ws_1", "name": "custom-room", "role": "admin",
-					"owner_user_id": 1,
+					"id": "sp_1", "name": "custom-room", "role": "admin",
+					"owner_user_id":  1,
 					"runtime_driver": "docker", "runtime_state": "stopped", "runtime_meta": "",
 					"cpu_millis": 2000, "memory_mib": 4096, "disk_mb": 5120,
 					"network_egress_mb": 512, "llm_tokens_used": 0, "llm_tokens_limit": 50000,
@@ -321,7 +321,7 @@ func TestRoomCreatePayload(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("room create code=%d stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "created room ws_1 (custom-room)") {
+	if !strings.Contains(stdout.String(), "created room sp_1 (custom-room)") {
 		t.Fatalf("stdout=%s", stdout.String())
 	}
 }

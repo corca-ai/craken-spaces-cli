@@ -20,12 +20,12 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 # ---------------------------------------------------------------------------
 sessions = {}          # token -> email
 ssh_keys = {}          # fingerprint -> record
-workspaces = {}        # id -> record
-member_auth_keys = {}  # (workspace_id, key_id) -> record
+spaces = {}            # id -> record
+member_auth_keys = {}  # (space_id, key_id) -> record
 next_ssh_key_id = 1
 next_member_key_id = 1
 
-WORKSPACE_TEMPLATE = {
+SPACE_TEMPLATE = {
     "id": "", "name": "", "role": "admin", "owner_user_id": 1,
     "created_at": "2026-01-01T00:00:00Z",
     "cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
@@ -36,9 +36,9 @@ WORKSPACE_TEMPLATE = {
 }
 
 
-def workspace_record(ws_id, name, **overrides):
-    rec = dict(WORKSPACE_TEMPLATE)
-    rec["id"] = ws_id
+def space_record(space_id, name, **overrides):
+    rec = dict(SPACE_TEMPLATE)
+    rec["id"] = space_id
     rec["name"] = name
     rec.update(overrides)
     return rec
@@ -136,14 +136,14 @@ class Handler(BaseHTTPRequestHandler):
             })
             return
 
-        # --- workspaces ---
+        # --- spaces ---
         if method == "GET" and path == "/api/v1/spaces":
             email = self._require_auth()
             if email is None:
                 return
             self._send_json(200, {
                 "ok": True,
-                "spaces": list(workspaces.values()),
+                "spaces": list(spaces.values()),
             })
             return
 
@@ -152,52 +152,52 @@ class Handler(BaseHTTPRequestHandler):
             if email is None:
                 return
             body = self._read_json()
-            ws_id = "ws_" + str(len(workspaces) + 1)
-            rec = workspace_record(ws_id, body.get("name", ""),
-                                   runtime_driver=body.get("runtime_driver", "mock"),
-                                   cpu_millis=body.get("cpu_millis", 4000),
-                                   memory_mib=body.get("memory_mib", 8192),
-                                   disk_mb=body.get("disk_mb", 10240),
-                                   network_egress_mb=body.get("network_egress_mb", 1024),
-                                   llm_tokens_limit=body.get("llm_tokens_limit", 100000))
-            workspaces[ws_id] = rec
+            space_id = "sp_" + str(len(spaces) + 1)
+            rec = space_record(space_id, body.get("name", ""),
+                               runtime_driver=body.get("runtime_driver", "mock"),
+                               cpu_millis=body.get("cpu_millis", 4000),
+                               memory_mib=body.get("memory_mib", 8192),
+                               disk_mb=body.get("disk_mb", 10240),
+                               network_egress_mb=body.get("network_egress_mb", 1024),
+                               llm_tokens_limit=body.get("llm_tokens_limit", 100000))
+            spaces[space_id] = rec
             self._send_json(200, {"ok": True, "space": rec})
             return
 
-        # workspace up
+        # space up
         m = re.fullmatch(r"/api/v1/spaces/([^/]+)/up", path)
         if method == "POST" and m:
             email = self._require_auth()
             if email is None:
                 return
-            ws_id = m.group(1)
-            rec = workspaces.get(ws_id, workspace_record(ws_id, "unknown"))
+            space_id = m.group(1)
+            rec = spaces.get(space_id, space_record(space_id, "unknown"))
             rec["runtime_state"] = "running"
-            workspaces[ws_id] = rec
+            spaces[space_id] = rec
             self._send_json(200, {"ok": True, "space": rec})
             return
 
-        # workspace down
+        # space down
         m = re.fullmatch(r"/api/v1/spaces/([^/]+)/down", path)
         if method == "POST" and m:
             email = self._require_auth()
             if email is None:
                 return
-            ws_id = m.group(1)
-            rec = workspaces.get(ws_id, workspace_record(ws_id, "unknown"))
+            space_id = m.group(1)
+            rec = spaces.get(space_id, space_record(space_id, "unknown"))
             rec["runtime_state"] = "stopped"
-            workspaces[ws_id] = rec
+            spaces[space_id] = rec
             self._send_json(200, {"ok": True, "space": rec})
             return
 
-        # workspace delete
+        # space delete
         m = re.fullmatch(r"/api/v1/spaces/([^/]+)/delete", path)
         if method == "DELETE" and m:
             email = self._require_auth()
             if email is None:
                 return
-            ws_id = m.group(1)
-            workspaces.pop(ws_id, None)
+            space_id = m.group(1)
+            spaces.pop(space_id, None)
             self._send_json(200, {"ok": True})
             return
 
@@ -207,8 +207,8 @@ class Handler(BaseHTTPRequestHandler):
             email = self._require_auth()
             if email is None:
                 return
-            ws_id = m.group(1)
-            keys = [v for (wid, _), v in member_auth_keys.items() if wid == ws_id]
+            space_id = m.group(1)
+            keys = [v for (sid, _), v in member_auth_keys.items() if sid == space_id]
             self._send_json(200, {"ok": True, "auth_keys": keys})
             return
 
@@ -217,14 +217,14 @@ class Handler(BaseHTTPRequestHandler):
             email = self._require_auth()
             if email is None:
                 return
-            ws_id = m.group(1)
+            space_id = m.group(1)
             body = self._read_json()
             key_id = next_member_key_id
             next_member_key_id += 1
             rec = {
                 "id": key_id,
-                "space_id": ws_id,
-                "space_name": workspaces.get(ws_id, {}).get("name", "unknown"),
+                "space_id": space_id,
+                "space_name": spaces.get(space_id, {}).get("name", "unknown"),
                 "issued_by_user_id": 1,
                 "issued_by_email": email,
                 "invitee_email": body.get("email", ""),
@@ -238,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
                 "network_egress_mb": body.get("network_egress_mb", 256),
                 "llm_tokens_limit": body.get("llm_tokens_limit", 10000),
             }
-            member_auth_keys[(ws_id, key_id)] = rec
+            member_auth_keys[(space_id, key_id)] = rec
             self._send_json(200, {
                 "ok": True,
                 "auth_key": rec,
@@ -252,9 +252,9 @@ class Handler(BaseHTTPRequestHandler):
             email = self._require_auth()
             if email is None:
                 return
-            ws_id = m.group(1)
+            space_id = m.group(1)
             key_id = int(m.group(2))
-            rec = member_auth_keys.get((ws_id, key_id))
+            rec = member_auth_keys.get((space_id, key_id))
             if rec:
                 rec["revoked_at"] = "2026-01-02T00:00:00Z"
             self._send_json(200, {"ok": True})
@@ -308,7 +308,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "ok": True,
                 "fingerprint": "SHA256:fakecert",
-                "principal": body.get("principal", "craken-cell"),
+                "principal": body.get("principal", "spaces-room"),
                 "expires_at": "2026-01-01T00:05:00Z",
                 "certificate": "ssh-ed25519-cert-v01@openssh.com AAAA_FAKE_CERT\n",
             })
