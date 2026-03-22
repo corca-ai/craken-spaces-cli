@@ -10,7 +10,7 @@ priority order:
 1. **`--base-url` flag** (highest priority)
 2. **`CRAKEN_BASE_URL` environment variable**
 3. **Saved session file** (from the last login)
-4. **Default** `https://agents.borca.ai` (lowest priority)
+4. **Default** `https://spaces.borca.ai` (lowest priority)
 
 The session file path is resolved similarly:
 
@@ -57,17 +57,17 @@ the session file. Here we point the env var to a dev URL and confirm the
 generated SSH config picks it up as the hostname:
 
 ```run:shell
-$ CRAKEN_BASE_URL=https://agents-dev.borca.ai CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test | grep HostName
-  HostName agents-dev.borca.ai
+$ CRAKEN_BASE_URL=https://spaces-dev.borca.ai CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test | grep HostName
+  HostName spaces-dev.borca.ai
 ```
 
 ## Default base URL
 
 Without any override, the CLI falls back to the production URL. We verify
-the help text mentions `agents.borca.ai` as the default:
+the help text mentions `spaces.borca.ai` as the default:
 
 ```run:shell
-$ ${bin} help 2>&1 | grep CRAKEN_BASE_URL | grep -c agents.borca.ai
+$ ${bin} help 2>&1 | grep CRAKEN_BASE_URL | grep -c spaces.borca.ai
 1
 ```
 

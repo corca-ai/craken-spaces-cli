@@ -43,7 +43,7 @@ Local-state client:
 
 | Variable | Required | Description |
 |---|---|---|
-| `CRAKEN_BASE_URL` | no | Override the default public control-plane base URL (`https://agents.borca.ai`) |
+| `CRAKEN_BASE_URL` | no | Override the default public control-plane base URL (`https://spaces.borca.ai`) |
 | `CRAKEN_SESSION_FILE` | no | Override local session file path |
 | `CRAKEN_SSH_HOST` | no | Override Room-entry SSH host |
 | `CRAKEN_SSH_PORT` | no | Override Room-entry SSH port (default: `22`) |

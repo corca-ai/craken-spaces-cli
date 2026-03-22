@@ -20,13 +20,13 @@ spaces help
 The CLI defaults to:
 
 ```sh
-https://agents.borca.ai
+https://spaces.borca.ai
 ```
 
 Use the dev host or another deployment with:
 
 ```sh
-export CRAKEN_BASE_URL=https://agents-dev.borca.ai
+export CRAKEN_BASE_URL=https://spaces-dev.borca.ai
 spaces <command> [options]
 spaces help
 ```

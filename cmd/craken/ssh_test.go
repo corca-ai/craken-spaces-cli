@@ -66,11 +66,11 @@ func TestResolveSSHHost(t *testing.T) {
 		}
 	})
 	t.Run("base URL", func(t *testing.T) {
-		got, err := resolveSSHHost("", "https://agents.borca.ai")
+		got, err := resolveSSHHost("", "https://spaces.borca.ai")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if got != "agents.borca.ai" {
+		if got != "spaces.borca.ai" {
 			t.Fatalf("got %q, want hostname from base URL", got)
 		}
 	})

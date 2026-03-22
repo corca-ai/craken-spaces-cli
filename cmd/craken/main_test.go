@@ -207,11 +207,11 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 }
 
 func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
-	t.Setenv("CRAKEN_BASE_URL", "https://agents-dev.borca.ai")
+	t.Setenv("CRAKEN_BASE_URL", "https://spaces-dev.borca.ai")
 
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 	if err := saveSession(sessionFile, localSession{
-		BaseURL:      "https://agents.borca.ai",
+		BaseURL:      "https://spaces.borca.ai",
 		Email:        "alice@example.com",
 		SessionToken: "sess_test",
 	}); err != nil {
@@ -233,7 +233,7 @@ func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("ssh client-config code=%d stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "HostName agents-dev.borca.ai") {
+	if !strings.Contains(stdout.String(), "HostName spaces-dev.borca.ai") {
 		t.Fatalf("stdout missing env-resolved host:\n%s", stdout.String())
 	}
 }

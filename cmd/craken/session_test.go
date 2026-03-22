@@ -19,13 +19,13 @@ func TestRequireBaseURLFallsBackToDefaultProdDomain(t *testing.T) {
 }
 
 func TestResolveBaseURLPrefersEnvironmentOverSession(t *testing.T) {
-	t.Setenv("CRAKEN_BASE_URL", "https://agents-dev.borca.ai/")
+	t.Setenv("CRAKEN_BASE_URL", "https://spaces-dev.borca.ai/")
 
 	cfg := cliConfig{}
-	session := &localSession{BaseURL: "https://agents.borca.ai"}
+	session := &localSession{BaseURL: "https://spaces.borca.ai"}
 
 	got := cfg.resolveBaseURL(session)
-	if got != "https://agents-dev.borca.ai" {
+	if got != "https://spaces-dev.borca.ai" {
 		t.Fatalf("resolveBaseURL = %q, want env override", got)
 	}
 }
@@ -40,12 +40,12 @@ func TestDefaultSessionPathPrefersEnvVar(t *testing.T) {
 }
 
 func TestResolveBaseURLPrefersExplicitFlagOverEnvironment(t *testing.T) {
-	t.Setenv("CRAKEN_BASE_URL", "https://agents-dev.borca.ai")
+	t.Setenv("CRAKEN_BASE_URL", "https://spaces-dev.borca.ai")
 
-	cfg := cliConfig{BaseURL: "https://agents.borca.ai"}
+	cfg := cliConfig{BaseURL: "https://spaces.borca.ai"}
 
 	got := cfg.resolveBaseURL(nil)
-	if got != "https://agents.borca.ai" {
+	if got != "https://spaces.borca.ai" {
 		t.Fatalf("resolveBaseURL = %q, want explicit flag override", got)
 	}
 }
