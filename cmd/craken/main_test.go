@@ -95,13 +95,13 @@ func TestAuthLoginUsesEnvironmentBaseURL(t *testing.T) {
 
 func TestRoomIssueMemberAuthKey(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
-		"issueWorkspaceMemberAuthKey": {
+		"issueSpaceMemberAuthKey": {
 			Body: map[string]any{
 				"ok": true,
 				"auth_key": map[string]any{
 					"id":                7,
-					"workspace_id":      "ws_123",
-					"workspace_name":    "alpha",
+					"space_id":      "ws_123",
+					"space_name":    "alpha",
 					"issued_by_user_id": 1,
 					"issued_by_email":   "alice@example.com",
 					"invitee_email":     "bob@example.com",
@@ -287,6 +287,270 @@ func TestRoomUpRequiresRoomFlag(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "--room is required") {
 		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestRoomCreateListUpDownDelete(t *testing.T) {
+	workspaceBody := map[string]any{
+		"id": "ws_1", "name": "test-room", "role": "admin",
+		"owner_user_id": 1,
+		"runtime_driver": "mock", "runtime_state": "stopped", "runtime_meta": "",
+		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
+		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
+		"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
+		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+		"created_at": "2026-01-01T00:00:00Z",
+	}
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"createSpace": {
+			Body: map[string]any{"ok": true, "space": workspaceBody},
+		},
+		"listSpaces": {
+			Body: map[string]any{
+				"ok":         true,
+				"spaces": []any{workspaceBody},
+			},
+		},
+		"startSpace": {
+			Body: map[string]any{
+				"ok": true,
+				"space": map[string]any{
+					"id": "ws_1", "name": "test-room", "role": "admin",
+					"owner_user_id": 1,
+					"runtime_driver": "mock", "runtime_state": "running", "runtime_meta": "",
+					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
+					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
+					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
+					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+					"created_at": "2026-01-01T00:00:00Z",
+				},
+			},
+		},
+		"stopSpace": {
+			Body: map[string]any{
+				"ok": true,
+				"space": map[string]any{
+					"id": "ws_1", "name": "test-room", "role": "admin",
+					"owner_user_id": 1,
+					"runtime_driver": "mock", "runtime_state": "stopped", "runtime_meta": "",
+					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
+					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
+					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
+					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+					"created_at": "2026-01-01T00:00:00Z",
+				},
+			},
+		},
+		"deleteSpace": {
+			Body: map[string]any{"ok": true},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "room", "create", "--name", "test-room"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("room create code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "created room") {
+		t.Fatalf("stdout missing 'created room': %s", stdout.String())
+	}
+
+	// List
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "room", "list"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("room list code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "test-room") {
+		t.Fatalf("stdout missing 'test-room': %s", stdout.String())
+	}
+
+	// Up
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "room", "up", "--room", "ws_1"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("room up code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "is running") {
+		t.Fatalf("stdout missing 'is running': %s", stdout.String())
+	}
+
+	// Down
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "room", "down", "--room", "ws_1"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("room down code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "is stopped") {
+		t.Fatalf("stdout missing 'is stopped': %s", stdout.String())
+	}
+
+	// Delete
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "room", "delete", "--room", "ws_1"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("room delete code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "deleted room") {
+		t.Fatalf("stdout missing 'deleted room': %s", stdout.String())
+	}
+}
+
+func TestSSHAddListRemoveKeys(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"addSSHKey": {
+			Body: map[string]any{
+				"ok": true,
+				"key": map[string]any{
+					"id": 1, "user_id": 1, "user_email": "alice@example.com",
+					"name": "my-laptop", "public_key": "ssh-ed25519 AAAATEST alice@example.com",
+					"fingerprint": "SHA256:test", "created_at": "2026-01-01T00:00:00Z",
+				},
+			},
+		},
+		"listSSHKeys": {
+			Body: map[string]any{
+				"ok": true,
+				"keys": []any{
+					map[string]any{
+						"id": 1, "user_id": 1, "user_email": "alice@example.com",
+						"name": "my-laptop", "public_key": "ssh-ed25519 AAAATEST alice@example.com",
+						"fingerprint": "SHA256:test", "created_at": "2026-01-01T00:00:00Z",
+					},
+				},
+			},
+		},
+		"removeSSHKey": {
+			Body: map[string]any{"ok": true},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add key
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "add-key", "--name", "my-laptop", "--public-key", "ssh-ed25519 AAAATEST alice@example.com"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("ssh add-key code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "registered ssh key") {
+		t.Fatalf("stdout missing 'registered ssh key': %s", stdout.String())
+	}
+
+	// List keys
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "ssh", "list-keys"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("ssh list-keys code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "my-laptop") {
+		t.Fatalf("stdout missing 'my-laptop': %s", stdout.String())
+	}
+
+	// Remove key
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "ssh", "remove-key", "--fingerprint", "SHA256:test"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("ssh remove-key code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "removed ssh key") {
+		t.Fatalf("stdout missing 'removed ssh key': %s", stdout.String())
+	}
+}
+
+func TestSSHIssueCert(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"issueSSHCert": {
+			Body: map[string]any{
+				"ok":          true,
+				"fingerprint": "SHA256:test",
+				"principal":   "craken-cell",
+				"expires_at":  "2026-03-30T00:00:00Z",
+				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
+			},
+		},
+	})
+
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	identityFile := filepath.Join(tmpDir, "id_ed25519")
+	if err := os.WriteFile(identityFile, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(identityFile+".pub", []byte("ssh-ed25519 AAAATEST alice@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "issue-cert", "--identity-file", identityFile}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("ssh issue-cert code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "issued ssh certificate") {
+		t.Fatalf("stdout missing 'issued ssh certificate': %s", stdout.String())
+	}
+
+	certFile := sshCertificateFileForIdentity(identityFile)
+	certData, err := os.ReadFile(certFile)
+	if err != nil {
+		t.Fatalf("cert file not written: %v", err)
+	}
+	if !strings.Contains(string(certData), "cert") {
+		t.Fatalf("cert file contents=%q", string(certData))
+	}
+}
+
+func TestAuthLogout(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authLogin": {
+			Body: map[string]any{
+				"ok":            true,
+				"email":         "alice@example.com",
+				"session_token": "sess_test",
+			},
+		},
+		"authLogout": {
+			Body: map[string]any{"ok": true},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+
+	// Login first
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--base-url", server.server.URL, "--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key", "auth_test"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("auth login code=%d stderr=%s", code, stderr.String())
+	}
+
+	// Logout
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "auth", "logout"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("auth logout code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "logged out") {
+		t.Fatalf("stdout missing 'logged out': %s", stdout.String())
 	}
 }
 

@@ -137,17 +137,17 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # --- workspaces ---
-        if method == "GET" and path == "/api/v1/workspaces":
+        if method == "GET" and path == "/api/v1/spaces":
             email = self._require_auth()
             if email is None:
                 return
             self._send_json(200, {
                 "ok": True,
-                "workspaces": list(workspaces.values()),
+                "spaces": list(workspaces.values()),
             })
             return
 
-        if method == "POST" and path == "/api/v1/workspaces":
+        if method == "POST" and path == "/api/v1/spaces":
             email = self._require_auth()
             if email is None:
                 return
@@ -161,11 +161,11 @@ class Handler(BaseHTTPRequestHandler):
                                    network_egress_mb=body.get("network_egress_mb", 1024),
                                    llm_tokens_limit=body.get("llm_tokens_limit", 100000))
             workspaces[ws_id] = rec
-            self._send_json(200, {"ok": True, "workspace": rec})
+            self._send_json(200, {"ok": True, "space": rec})
             return
 
         # workspace up
-        m = re.fullmatch(r"/api/v1/workspaces/([^/]+)/up", path)
+        m = re.fullmatch(r"/api/v1/spaces/([^/]+)/up", path)
         if method == "POST" and m:
             email = self._require_auth()
             if email is None:
@@ -174,11 +174,11 @@ class Handler(BaseHTTPRequestHandler):
             rec = workspaces.get(ws_id, workspace_record(ws_id, "unknown"))
             rec["runtime_state"] = "running"
             workspaces[ws_id] = rec
-            self._send_json(200, {"ok": True, "workspace": rec})
+            self._send_json(200, {"ok": True, "space": rec})
             return
 
         # workspace down
-        m = re.fullmatch(r"/api/v1/workspaces/([^/]+)/down", path)
+        m = re.fullmatch(r"/api/v1/spaces/([^/]+)/down", path)
         if method == "POST" and m:
             email = self._require_auth()
             if email is None:
@@ -187,11 +187,11 @@ class Handler(BaseHTTPRequestHandler):
             rec = workspaces.get(ws_id, workspace_record(ws_id, "unknown"))
             rec["runtime_state"] = "stopped"
             workspaces[ws_id] = rec
-            self._send_json(200, {"ok": True, "workspace": rec})
+            self._send_json(200, {"ok": True, "space": rec})
             return
 
         # workspace delete
-        m = re.fullmatch(r"/api/v1/workspaces/([^/]+)/delete", path)
+        m = re.fullmatch(r"/api/v1/spaces/([^/]+)/delete", path)
         if method == "DELETE" and m:
             email = self._require_auth()
             if email is None:
@@ -202,7 +202,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # member auth keys - list
-        m = re.fullmatch(r"/api/v1/workspaces/([^/]+)/member-auth-keys", path)
+        m = re.fullmatch(r"/api/v1/spaces/([^/]+)/member-auth-keys", path)
         if method == "GET" and m:
             email = self._require_auth()
             if email is None:
@@ -223,8 +223,8 @@ class Handler(BaseHTTPRequestHandler):
             next_member_key_id += 1
             rec = {
                 "id": key_id,
-                "workspace_id": ws_id,
-                "workspace_name": workspaces.get(ws_id, {}).get("name", "unknown"),
+                "space_id": ws_id,
+                "space_name": workspaces.get(ws_id, {}).get("name", "unknown"),
                 "issued_by_user_id": 1,
                 "issued_by_email": email,
                 "invitee_email": body.get("email", ""),
@@ -247,7 +247,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # member auth keys - revoke
-        m = re.fullmatch(r"/api/v1/workspaces/([^/]+)/member-auth-keys/(\d+)", path)
+        m = re.fullmatch(r"/api/v1/spaces/([^/]+)/member-auth-keys/(\d+)", path)
         if method == "DELETE" and m:
             email = self._require_auth()
             if email is None:

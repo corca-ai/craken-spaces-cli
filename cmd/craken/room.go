@@ -76,9 +76,9 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		var response struct {
 			OK        bool            `json:"ok"`
 			Error     string          `json:"error"`
-			Workspace workspaceRecord `json:"workspace"`
+			Workspace workspaceRecord `json:"space"`
 		}
-		if err := client.doJSON("POST", "/api/v1/workspaces", map[string]any{
+		if err := client.doJSON("POST", "/api/v1/spaces", map[string]any{
 			"name":              *name,
 			"runtime_driver":    *runtimeDriver,
 			"cpu_millis":        *cpuMillis,
@@ -97,9 +97,9 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		var response struct {
 			OK         bool              `json:"ok"`
 			Error      string            `json:"error"`
-			Workspaces []workspaceRecord `json:"workspaces"`
+			Workspaces []workspaceRecord `json:"spaces"`
 		}
-		if err := client.doJSON("GET", "/api/v1/workspaces", nil, &response); err != nil {
+		if err := client.doJSON("GET", "/api/v1/spaces", nil, &response); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
@@ -144,9 +144,9 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		var response struct {
 			OK        bool            `json:"ok"`
 			Error     string          `json:"error"`
-			Workspace workspaceRecord `json:"workspace"`
+			Workspace workspaceRecord `json:"space"`
 		}
-		if err := client.doJSON("POST", "/api/v1/workspaces/"+*workspaceID+"/"+action, nil, &response); err != nil {
+		if err := client.doJSON("POST", "/api/v1/spaces/"+*workspaceID+"/"+action, nil, &response); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
@@ -167,7 +167,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
-		if err := client.doJSON("DELETE", "/api/v1/workspaces/"+*workspaceID+"/delete", nil, nil); err != nil {
+		if err := client.doJSON("DELETE", "/api/v1/spaces/"+*workspaceID+"/delete", nil, nil); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
@@ -201,7 +201,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			AuthKey memberAuthKeyRecord `json:"auth_key"`
 			Key     string              `json:"key"`
 		}
-		if err := client.doJSON("POST", "/api/v1/workspaces/"+*workspaceID+"/member-auth-keys", map[string]any{
+		if err := client.doJSON("POST", "/api/v1/spaces/"+*workspaceID+"/member-auth-keys", map[string]any{
 			"email":             *email,
 			"expires_hours":     *expiresHours,
 			"cpu_millis":        *cpuMillis,
@@ -237,7 +237,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			Error    string                `json:"error"`
 			AuthKeys []memberAuthKeyRecord `json:"auth_keys"`
 		}
-		if err := client.doJSON("GET", "/api/v1/workspaces/"+*workspaceID+"/member-auth-keys", nil, &response); err != nil {
+		if err := client.doJSON("GET", "/api/v1/spaces/"+*workspaceID+"/member-auth-keys", nil, &response); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
@@ -277,7 +277,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			fmt.Fprintln(stderr, "error: --room and --id are required")
 			return 2
 		}
-		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/workspaces/%s/member-auth-keys/%d", *workspaceID, *authKeyID), nil, nil); err != nil {
+		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/spaces/%s/member-auth-keys/%d", *workspaceID, *authKeyID), nil, nil); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}

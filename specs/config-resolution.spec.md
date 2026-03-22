@@ -41,7 +41,9 @@ rm -rf ${tmp}
 
 ## Flag overrides environment
 
-When both `--base-url` and `CRAKEN_BASE_URL` are set, the flag wins:
+When both `--base-url` and `CRAKEN_BASE_URL` are set, the flag wins.
+Here we set the env var to a bogus URL and pass the correct URL via the flag;
+login succeeds because the flag takes priority:
 
 ```run:shell
 $ CRAKEN_BASE_URL=http://wrong:9999 CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} --base-url ${url} auth login --email bob@example.com --key test-key | head -1
@@ -51,7 +53,8 @@ authenticated as bob@example.com
 ## Environment overrides session
 
 When `CRAKEN_BASE_URL` is set, it takes precedence over the base URL saved in
-the session file:
+the session file. Here we point the env var to a dev URL and confirm the
+generated SSH config picks it up as the hostname:
 
 ```run:shell
 $ CRAKEN_BASE_URL=https://agents-dev.borca.ai CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test | grep HostName
@@ -60,7 +63,8 @@ $ CRAKEN_BASE_URL=https://agents-dev.borca.ai CRAKEN_SESSION_FILE=${tmp}/session
 
 ## Default base URL
 
-Without any override, the CLI falls back to the production URL:
+Without any override, the CLI falls back to the production URL. We verify
+the help text mentions `agents.borca.ai` as the default:
 
 ```run:shell
 $ ${bin} help 2>&1 | grep CRAKEN_BASE_URL | grep -c agents.borca.ai
@@ -77,6 +81,9 @@ SSH-related environment variables override defaults:
 | `CRAKEN_SSH_PORT` | `22` | Room-entry SSH port |
 | `CRAKEN_SSH_LOGIN_USER` | `craken-cell` | SSH login user |
 | `CRAKEN_SSH_BIN` | `ssh` from PATH | local ssh binary |
+
+Setting `CRAKEN_SSH_LOGIN_USER` overrides the default login user in
+the generated SSH config:
 
 ```run:shell
 $ CRAKEN_SSH_LOGIN_USER=custom-user CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test --host test.example.com | grep User

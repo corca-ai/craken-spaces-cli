@@ -60,17 +60,22 @@ curl -sSfL https://raw.githubusercontent.com/corca-ai/craken-spaces-cli/main/ins
 
 ## Quick Start
 
+To get your auth key,
+[join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) and you will
+receive one when your access is approved.
+
 ```sh
 # 1. Log in with your email and auth key
 spaces auth login --email you@example.com --key YOUR_AUTH_KEY
 
 # 2. Create a Room
 spaces room create --name my-project
+# → created room ws_xxx (my-project)
 
 # 3. Register your SSH key
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
 
-# 4. Connect to your Room
+# 4. Connect to your Room (use the room ID from step 2)
 spaces ssh connect --room ws_xxx
 ```
 

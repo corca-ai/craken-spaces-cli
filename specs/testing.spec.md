@@ -26,5 +26,7 @@ command -v go >/dev/null 2>&1
 
 ```run:shell
 # Run Go unit tests with contract-validated fakes
-go test ./...
+# (The protocol sync test is skipped here; it only applies when the
+#  sibling craken-managed-agents checkout is present.)
+go test -run 'Test[^P]' ./...
 ```

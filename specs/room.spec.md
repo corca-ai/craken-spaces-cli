@@ -43,8 +43,9 @@ created room ws_1 (my-room)
 
 ## List
 
-View all Rooms you have access to. The table includes resource limits,
-runtime state, and LLM token usage:
+View all Rooms you have access to. The full table has columns:
+id, name, role, driver, state, cpu, memory, disk, net, llm_tokens, and
+created_at. Here we show just the key columns:
 
 ```run:shell
 $ ${cli} room list | awk '{print $1, $2, $5}'
@@ -101,7 +102,8 @@ The invitee can then log in with `spaces auth login --email bob@example.com --ke
 
 ### Listing keys
 
-View all issued keys for a Room, including their status:
+View all issued keys for a Room, including their status. The full table
+has columns: id, email, status, and created_at. Here we show the key columns:
 
 ```run:shell
 $ ${cli} room member-auth-keys --room ws_2 | awk '{print $1, $2, $3}'

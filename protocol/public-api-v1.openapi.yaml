@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: Craken Public Control-Plane API
+  title: Craken Spaces Public Control-Plane API
   version: v1
   description: |
-    Narrow external HTTP API used by craken-cli for alpha user and workspace-admin
-    flows.
+    Narrow external HTTP API used by the `spaces` CLI for alpha user and
+    space-admin flows.
 servers:
   - url: http://127.0.0.1
 security:
@@ -51,76 +51,76 @@ paths:
                 $ref: '#/components/schemas/UserResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/workspaces:
+  /api/v1/spaces:
     get:
-      operationId: listWorkspaces
+      operationId: listSpaces
       responses:
         '200':
-          description: Workspace list
+          description: Space list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkspacesResponse'
+                $ref: '#/components/schemas/SpacesResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
     post:
-      operationId: createWorkspace
+      operationId: createSpace
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateWorkspaceRequest'
+              $ref: '#/components/schemas/CreateSpaceRequest'
       responses:
         '200':
-          description: Created workspace
+          description: Created space
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkspaceResponse'
+                $ref: '#/components/schemas/SpaceResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/workspaces/{workspaceId}/up:
+  /api/v1/spaces/{spaceId}/up:
     post:
-      operationId: startWorkspace
+      operationId: startSpace
       parameters:
-        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/SpaceId'
       responses:
         '200':
-          description: Started workspace
+          description: Started space
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkspaceResponse'
+                $ref: '#/components/schemas/SpaceResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/workspaces/{workspaceId}/down:
+  /api/v1/spaces/{spaceId}/down:
     post:
-      operationId: stopWorkspace
+      operationId: stopSpace
       parameters:
-        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/SpaceId'
       responses:
         '200':
-          description: Stopped workspace
+          description: Stopped space
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkspaceResponse'
+                $ref: '#/components/schemas/SpaceResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/workspaces/{workspaceId}/delete:
+  /api/v1/spaces/{spaceId}/delete:
     delete:
-      operationId: deleteWorkspace
+      operationId: deleteSpace
       parameters:
-        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/SpaceId'
       responses:
         '200':
           $ref: '#/components/responses/OkResponse'
@@ -128,14 +128,14 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/workspaces/{workspaceId}/member-auth-keys:
+  /api/v1/spaces/{spaceId}/member-auth-keys:
     get:
-      operationId: listWorkspaceMemberAuthKeys
+      operationId: listSpaceMemberAuthKeys
       parameters:
-        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/SpaceId'
       responses:
         '200':
-          description: Workspace member auth keys
+          description: Space member auth keys
           content:
             application/json:
               schema:
@@ -145,9 +145,9 @@ paths:
         '401':
           $ref: '#/components/responses/ErrorResponse'
     post:
-      operationId: issueWorkspaceMemberAuthKey
+      operationId: issueSpaceMemberAuthKey
       parameters:
-        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/SpaceId'
       requestBody:
         required: true
         content:
@@ -156,7 +156,7 @@ paths:
               $ref: '#/components/schemas/IssueMemberAuthKeyRequest'
       responses:
         '200':
-          description: Issued workspace member auth key
+          description: Issued space member auth key
           content:
             application/json:
               schema:
@@ -165,11 +165,11 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/workspaces/{workspaceId}/member-auth-keys/{authKeyId}:
+  /api/v1/spaces/{spaceId}/member-auth-keys/{authKeyId}:
     delete:
-      operationId: revokeWorkspaceMemberAuthKey
+      operationId: revokeSpaceMemberAuthKey
       parameters:
-        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/SpaceId'
         - $ref: '#/components/parameters/AuthKeyId'
       responses:
         '200':
@@ -250,8 +250,8 @@ components:
       scheme: bearer
       bearerFormat: opaque-session-token
   parameters:
-    WorkspaceId:
-      name: workspaceId
+    SpaceId:
+      name: spaceId
       in: path
       required: true
       schema:
@@ -352,7 +352,7 @@ components:
           enum: [true]
         user:
           $ref: '#/components/schemas/User'
-    Workspace:
+    Space:
       type: object
       additionalProperties: false
       required:
@@ -419,29 +419,29 @@ components:
           type: string
         runtime_meta:
           type: string
-    WorkspacesResponse:
+    SpacesResponse:
       type: object
       additionalProperties: false
-      required: [ok, workspaces]
+      required: [ok, spaces]
       properties:
         ok:
           type: boolean
           enum: [true]
-        workspaces:
+        spaces:
           type: array
           items:
-            $ref: '#/components/schemas/Workspace'
-    WorkspaceResponse:
+            $ref: '#/components/schemas/Space'
+    SpaceResponse:
       type: object
       additionalProperties: false
-      required: [ok, workspace]
+      required: [ok, space]
       properties:
         ok:
           type: boolean
           enum: [true]
-        workspace:
-          $ref: '#/components/schemas/Workspace'
-    CreateWorkspaceRequest:
+        space:
+          $ref: '#/components/schemas/Space'
+    CreateSpaceRequest:
       type: object
       additionalProperties: false
       required:
@@ -467,13 +467,13 @@ components:
           type: integer
         llm_tokens_limit:
           type: integer
-    WorkspaceMemberAuthKey:
+    SpaceMemberAuthKey:
       type: object
       additionalProperties: false
       required:
         - id
-        - workspace_id
-        - workspace_name
+        - space_id
+        - space_name
         - issued_by_user_id
         - issued_by_email
         - invitee_email
@@ -490,9 +490,9 @@ components:
         id:
           type: integer
           format: int64
-        workspace_id:
+        space_id:
           type: string
-        workspace_name:
+        space_name:
           type: string
         issued_by_user_id:
           type: integer
@@ -532,7 +532,7 @@ components:
         auth_keys:
           type: array
           items:
-            $ref: '#/components/schemas/WorkspaceMemberAuthKey'
+            $ref: '#/components/schemas/SpaceMemberAuthKey'
     MemberAuthKeyResponse:
       type: object
       additionalProperties: false
@@ -542,7 +542,7 @@ components:
           type: boolean
           enum: [true]
         auth_key:
-          $ref: '#/components/schemas/WorkspaceMemberAuthKey'
+          $ref: '#/components/schemas/SpaceMemberAuthKey'
         key:
           type: string
     IssueMemberAuthKeyRequest:

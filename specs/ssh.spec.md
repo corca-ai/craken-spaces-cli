@@ -74,7 +74,8 @@ removed ssh key SHA256:fake1
 ### Quick connect
 
 `ssh connect` is the easiest way to enter a Room. It handles certificate
-issuance automatically:
+issuance automatically. The `--room` flag takes the Room ID (e.g. `ws_xxx`)
+shown by `room create` or `room list`:
 
 ```sh
 spaces ssh connect --room ws_xxx
