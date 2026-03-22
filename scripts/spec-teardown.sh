@@ -8,4 +8,4 @@ if [ -f .specdown/test-env ]; then
 	kill "$FAKE_PID" 2>/dev/null || true
 fi
 
-rm -f .specdown/test-env .specdown/fake-url.txt .specdown/craken
+rm -f .specdown/test-env .specdown/fake-url.txt .specdown/spaces

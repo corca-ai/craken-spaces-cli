@@ -12,9 +12,9 @@ go test ./...
 echo "Running lint..."
 golangci-lint run ./...
 
-echo "Building craken..."
+echo "Building spaces..."
 mkdir -p .tmp-bin
-go build -o .tmp-bin/craken ./cmd/craken
+go build -o .tmp-bin/spaces ./cmd/craken
 
 echo "Running specs..."
 specdown run

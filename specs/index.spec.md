@@ -8,12 +8,6 @@ CLI client for the Craken Spaces. It authenticates users against the
 public control-plane HTTP API, manages workspaces and SSH keys, and uses
 short-lived SSH certificates for secure Cell entry.
 
-From the repo root:
-
-- `specdown run` executes the full specification suite against a local fake API
-- `specdown run -dry-run` validates spec syntax without executing
-- `go test ./...` runs contract-validated unit tests
-
 ## Feature Specifications
 
 - [Authentication](auth.spec.md) -- login, logout, whoami

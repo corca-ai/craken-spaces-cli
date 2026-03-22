@@ -293,7 +293,7 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 
 func printWorkspaceUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  craken workspace <create|list|up|down|delete|issue-member-auth-key|member-auth-keys|revoke-member-auth-key> [flags]")
+	fmt.Fprintln(w, "  spaces workspace <create|list|up|down|delete|issue-member-auth-key|member-auth-keys|revoke-member-auth-key> [flags]")
 }
 
 func printTable(w io.Writer, header []string, rows [][]string) {

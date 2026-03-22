@@ -16,7 +16,7 @@ func main() {
 }
 
 func run(argv []string, stdout, stderr io.Writer) int {
-	root := flag.NewFlagSet("craken", flag.ContinueOnError)
+	root := flag.NewFlagSet("spaces", flag.ContinueOnError)
 	root.SetOutput(stderr)
 	root.Usage = func() { printUsage(root.Output()) }
 
@@ -42,7 +42,7 @@ func run(argv []string, stdout, stderr io.Writer) int {
 
 	switch args[0] {
 	case "version":
-		fmt.Fprintf(stdout, "craken %s\n", version)
+		fmt.Fprintf(stdout, "spaces %s\n", version)
 		return 0
 	case "help":
 		printUsage(stdout)
@@ -159,7 +159,7 @@ func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, `Usage: craken [--base-url URL] [--session-file PATH] <command> [options]
+	fmt.Fprint(w, `Usage: spaces [--base-url URL] [--session-file PATH] <command> [options]
 
 Commands:
   version
@@ -192,8 +192,8 @@ Environment:
 
 func printAuthUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  craken auth login --email EMAIL --key AUTH_KEY")
-	fmt.Fprintln(w, "  craken auth logout")
+	fmt.Fprintln(w, "  spaces auth login --email EMAIL --key AUTH_KEY")
+	fmt.Fprintln(w, "  spaces auth logout")
 }
 
 func isHelpWord(value string) bool {

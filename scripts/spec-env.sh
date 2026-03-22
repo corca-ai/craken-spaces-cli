@@ -8,7 +8,7 @@ set -eu
 mkdir -p .specdown
 
 # Build CLI once
-go build -o .specdown/craken ./cmd/craken
+go build -o .specdown/spaces ./cmd/craken
 
 # Start fake API server in background
 python3 scripts/fake-api.py > .specdown/fake-url.txt &
@@ -36,5 +36,5 @@ fake_url="$(cat .specdown/fake-url.txt)"
 cat > .specdown/test-env <<EOF
 FAKE_URL=${fake_url}
 FAKE_PID=${fake_pid}
-CRAKEN_BIN=.specdown/craken
+CRAKEN_BIN=.specdown/spaces
 EOF

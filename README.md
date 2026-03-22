@@ -13,8 +13,8 @@ brew install corca-ai/tap/craken-spaces-cli
 ## Usage
 
 ```sh
-craken <command> [options]
-craken help
+spaces <command> [options]
+spaces help
 ```
 
 The CLI defaults to:
@@ -27,8 +27,8 @@ Use the dev host or another deployment with:
 
 ```sh
 export CRAKEN_BASE_URL=https://agents-dev.borca.ai
-craken <command> [options]
-craken help
+spaces <command> [options]
+spaces help
 ```
 
 ## Development

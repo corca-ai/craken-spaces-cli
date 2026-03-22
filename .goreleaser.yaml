@@ -3,7 +3,7 @@ version: 2
 builds:
   - id: craken
     main: ./cmd/craken
-    binary: craken
+    binary: spaces
     ldflags:
       - -s -w -X main.version={{ .Version }}
     env:
@@ -74,6 +74,6 @@ brews:
     description: CLI for Craken Spaces
     license: MIT
     install: |
-      bin.install "craken"
+      bin.install "spaces"
     test: |
-      system bin/"craken", "version"
+      system bin/"spaces", "version"

@@ -110,7 +110,7 @@ func (cfg cliConfig) requireAuthenticatedClient() (apiClient, *localSession, err
 		return apiClient{}, nil, err
 	}
 	if session == nil || session.SessionToken == "" {
-		return apiClient{}, nil, errors.New("not authenticated; run 'craken auth login'")
+		return apiClient{}, nil, errors.New("not authenticated; run 'spaces auth login'")
 	}
 	baseURL := cfg.resolveBaseURL(session)
 	return apiClient{BaseURL: baseURL, SessionToken: session.SessionToken}, session, nil

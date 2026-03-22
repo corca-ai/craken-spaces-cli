@@ -384,5 +384,5 @@ func parseIntEnv(key string, fallback int) int {
 
 func printSSHUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  craken ssh <add-key|list-keys|remove-key|issue-cert|connect|client-config> [flags]")
+	fmt.Fprintln(w, "  spaces ssh <add-key|list-keys|remove-key|issue-cert|connect|client-config> [flags]")
 }
