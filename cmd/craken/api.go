@@ -18,7 +18,7 @@ type apiClient struct {
 	HTTPClient   *http.Client
 }
 
-func (c apiClient) doJSON(method, path string, requestBody any, responseBody any) error {
+func (c apiClient) doJSON(method, path string, requestBody, responseBody any) error {
 	if strings.TrimSpace(c.BaseURL) == "" {
 		return errors.New("base URL is required")
 	}
@@ -55,7 +55,7 @@ func (c apiClient) doJSON(method, path string, requestBody any, responseBody any
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on read path
 
 	if resp.StatusCode >= 400 {
 		var payload map[string]any

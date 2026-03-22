@@ -11,12 +11,19 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
 
 archives:
   - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     name_template: >-
       craken_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 
@@ -28,6 +35,9 @@ changelog:
   sort: asc
   format: "{{ .SHA }}: {{ .Message }}{{ if .Logins }} ({{ .Logins | englishJoin }}){{ end }}"
   groups:
+    - title: Breaking Changes
+      regexp: '(?i)BREAKING'
+      order: 0
     - title: Added
       regexp: '^Add '
       order: 1
@@ -40,6 +50,9 @@ changelog:
     - title: Removed
       regexp: '^Remove '
       order: 4
+    - title: Documentation
+      regexp: '^(Improve|Rewrite) .*(spec|doc|guide|index|readme)'
+      order: 5
     - title: Other
       order: 999
   filters:

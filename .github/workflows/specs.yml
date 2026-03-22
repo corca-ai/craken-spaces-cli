@@ -1,0 +1,51 @@
+name: Specs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  specs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install specdown
+        run: go install github.com/corca-ai/specdown/cmd/specdown@latest
+
+      - name: Run specs
+        run: specdown run
+
+      - name: Prepare Pages artifact
+        if: github.ref == 'refs/heads/main'
+        run: cp .specdown/report.json .specdown/report/report.json
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: .specdown/report
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: specs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

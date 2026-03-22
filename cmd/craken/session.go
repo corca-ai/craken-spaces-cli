@@ -104,7 +104,7 @@ func (cfg cliConfig) requireBaseURL() (string, error) {
 	return cfg.resolveBaseURL(session), nil
 }
 
-func (cfg cliConfig) requireAuthenticatedClient() (apiClient, *localSession, error) {
+func (cfg cliConfig) requireAuthenticatedClient() (apiClient, *localSession, error) { //nolint:unparam // session used by future commands
 	session, err := loadSession(cfg.SessionFile)
 	if err != nil {
 		return apiClient{}, nil, err

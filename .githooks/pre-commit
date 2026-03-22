@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+cleanup() { rm -rf .tmp-bin; }
+trap cleanup EXIT
+
+echo "Running tests..."
+go test ./...
+
+echo "Running lint..."
+golangci-lint run ./...
+
+echo "Building craken..."
+mkdir -p .tmp-bin
+go build -o .tmp-bin/craken ./cmd/craken
+
+echo "Running specs..."
+specdown run

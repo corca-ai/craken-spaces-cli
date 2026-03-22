@@ -38,7 +38,7 @@ type memberAuthKeyRecord struct {
 	LLMTokensLimit  int    `json:"llm_tokens_limit"`
 }
 
-func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
+func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
 	if len(argv) == 0 || isHelpWord(argv[0]) {
 		printWorkspaceUsage(stdout)
 		if len(argv) == 0 {
@@ -104,19 +104,20 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		rows := make([][]string, 0, len(response.Workspaces))
-		for _, workspace := range response.Workspaces {
+		for i := range response.Workspaces {
+			w := &response.Workspaces[i]
 			rows = append(rows, []string{
-				workspace.ID,
-				workspace.Name,
-				workspace.Role,
-				workspace.RuntimeDriver,
-				workspace.RuntimeState,
-				strconv.Itoa(workspace.CPUMillis),
-				strconv.Itoa(workspace.MemoryMiB),
-				strconv.Itoa(workspace.DiskMB),
-				strconv.Itoa(workspace.NetworkEgressMB),
-				fmt.Sprintf("%d/%d", workspace.LLMTokensUsed, workspace.LLMTokensLimit),
-				workspace.CreatedAt,
+				w.ID,
+				w.Name,
+				w.Role,
+				w.RuntimeDriver,
+				w.RuntimeState,
+				strconv.Itoa(w.CPUMillis),
+				strconv.Itoa(w.MemoryMiB),
+				strconv.Itoa(w.DiskMB),
+				strconv.Itoa(w.NetworkEgressMB),
+				fmt.Sprintf("%d/%d", w.LLMTokensUsed, w.LLMTokensLimit),
+				w.CreatedAt,
 			})
 		}
 		printTable(stdout, []string{"id", "name", "role", "driver", "state", "cpu", "memory", "disk", "net", "llm_tokens", "created_at"}, rows)
@@ -241,20 +242,21 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		rows := make([][]string, 0, len(response.AuthKeys))
-		for _, authKey := range response.AuthKeys {
+		for i := range response.AuthKeys {
+			k := &response.AuthKeys[i]
 			status := "active"
 			switch {
-			case strings.TrimSpace(authKey.RevokedAt) != "":
+			case strings.TrimSpace(k.RevokedAt) != "":
 				status = "revoked"
-			case strings.TrimSpace(authKey.RedeemedAt) != "":
+			case strings.TrimSpace(k.RedeemedAt) != "":
 				status = "redeemed"
 			}
 			rows = append(rows, []string{
-				strconv.FormatInt(authKey.ID, 10),
-				authKey.InviteeEmail,
+				strconv.FormatInt(k.ID, 10),
+				k.InviteeEmail,
 				status,
-				authKey.ExpiresAt,
-				authKey.IssuedAt,
+				k.ExpiresAt,
+				k.IssuedAt,
 			})
 		}
 		printTable(stdout, []string{"id", "email", "status", "expires_at", "issued_at"}, rows)

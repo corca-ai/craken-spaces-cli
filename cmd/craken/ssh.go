@@ -20,7 +20,7 @@ type sshKeyRecord struct {
 	CreatedAt   string `json:"created_at"`
 }
 
-func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
+func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
 	if len(argv) == 0 || isHelpWord(argv[0]) {
 		printSSHUsage(stdout)
 		if len(argv) == 0 {
@@ -288,7 +288,7 @@ func issueSSHCert(client apiClient, identityFile, principal, certTTL string) (is
 	}, nil
 }
 
-func resolveSSHIdentityFile(identityFile string) (string, string, error) {
+func resolveSSHIdentityFile(identityFile string) (privateKey, publicKey string, _ error) {
 	candidates := make([]string, 0, 4)
 	if strings.TrimSpace(identityFile) != "" {
 		candidates = append(candidates, strings.TrimSpace(identityFile))

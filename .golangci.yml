@@ -1,0 +1,33 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gocritic
+    - gocognit
+    - bodyclose
+    - nilerr
+    - errorlint
+    - unparam
+    - unconvert
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Writer).Write
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam
+    gocognit:
+      min-complexity: 30

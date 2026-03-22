@@ -1,6 +1,7 @@
 # Build
 dist/
 *.exe
+.tmp-bin/
 
 # specdown artifacts
 .specdown/
