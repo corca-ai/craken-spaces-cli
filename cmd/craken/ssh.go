@@ -28,10 +28,14 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 		}
 		return 0
 	}
-	client, _, err := cfg.requireAuthenticatedClient()
-	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+	var client apiClient
+	if !containsHelpFlag(argv) {
+		c, _, err := cfg.requireAuthenticatedClient()
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		client = c
 	}
 
 	switch argv[0] {
@@ -110,8 +114,8 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 		fs.SetOutput(stderr)
 		workspaceID := fs.String("room", "", "room ID to target")
 		host := fs.String("host", "", "SSH host name")
-		user := fs.String("user", envOrDefault("CRAKEN_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
-		port := fs.Int("port", parseIntEnv("CRAKEN_SSH_PORT", 22), "SSH port")
+		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
+		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
 		alias := fs.String("alias", "", "SSH host alias")
 		if err := fs.Parse(argv[1:]); err != nil {
@@ -157,8 +161,8 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 		fs.SetOutput(stderr)
 		workspaceID := fs.String("room", "", "room ID to target")
 		host := fs.String("host", "", "SSH host name")
-		user := fs.String("user", envOrDefault("CRAKEN_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
-		port := fs.Int("port", parseIntEnv("CRAKEN_SSH_PORT", 22), "SSH port")
+		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
+		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
 		certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
 		remoteCommand := fs.String("command", "", "optional command to run inside the Room")
@@ -230,7 +234,7 @@ func cmdSSHIssueCert(client apiClient, argv []string, stdout, stderr io.Writer) 
 	fs := flag.NewFlagSet("ssh issue-cert", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	identityFile := fs.String("identity-file", "", "SSH private key path")
-	principal := fs.String("principal", envOrDefault("CRAKEN_SSH_LOGIN_USER", "craken-cell"), "certificate principal/login user")
+	principal := fs.String("principal", envOrDefault("SPACES_SSH_LOGIN_USER", "craken-cell"), "certificate principal/login user")
 	certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
 	if err := fs.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -347,11 +351,11 @@ func resolveSSHHost(explicitHost, baseURL string) (string, error) {
 	if strings.TrimSpace(explicitHost) != "" {
 		return strings.TrimSpace(explicitHost), nil
 	}
-	if envHost := strings.TrimSpace(os.Getenv("CRAKEN_SSH_HOST")); envHost != "" {
+	if envHost := strings.TrimSpace(os.Getenv("SPACES_SSH_HOST")); envHost != "" {
 		return envHost, nil
 	}
 	if strings.TrimSpace(baseURL) == "" {
-		return "", errors.New("SSH host is required; pass --host or set CRAKEN_SSH_HOST")
+		return "", errors.New("SSH host is required; pass --host or set SPACES_SSH_HOST")
 	}
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
@@ -364,7 +368,7 @@ func resolveSSHHost(explicitHost, baseURL string) (string, error) {
 }
 
 func resolveSSHBinary() (string, error) {
-	if path := strings.TrimSpace(os.Getenv("CRAKEN_SSH_BIN")); path != "" {
+	if path := strings.TrimSpace(os.Getenv("SPACES_SSH_BIN")); path != "" {
 		return path, nil
 	}
 	return exec.LookPath("ssh")
@@ -383,6 +387,16 @@ func parseIntEnv(key string, fallback int) int {
 }
 
 func printSSHUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  spaces ssh <add-key|list-keys|remove-key|issue-cert|connect|client-config> [flags]")
+	fmt.Fprint(w, `Usage: spaces ssh <subcommand> [flags]
+
+Subcommands:
+  add-key          Register an SSH public key
+  list-keys        List registered SSH keys
+  remove-key       Unregister an SSH key by fingerprint
+  issue-cert       Issue a short-lived SSH certificate
+  connect          Connect to a Room via SSH
+  client-config    Generate an OpenSSH config block
+
+Use "spaces ssh <subcommand> -h" for flag details.
+`)
 }

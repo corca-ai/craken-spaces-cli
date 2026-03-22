@@ -46,10 +46,14 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		}
 		return 0
 	}
-	client, _, err := cfg.requireAuthenticatedClient()
-	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+	var client apiClient
+	if !containsHelpFlag(argv) {
+		c, _, err := cfg.requireAuthenticatedClient()
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		client = c
 	}
 
 	switch argv[0] {
@@ -292,8 +296,20 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 }
 
 func printRoomUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  spaces room <create|list|up|down|delete|issue-member-auth-key|member-auth-keys|revoke-member-auth-key> [flags]")
+	fmt.Fprint(w, `Usage: spaces room <subcommand> [flags]
+
+Subcommands:
+  create                    Create a new Room (--name required)
+  list                      List Rooms you have access to
+  up                        Start a Room (--room required)
+  down                      Stop a Room (--room required)
+  delete                    Permanently delete a Room (--room required)
+  issue-member-auth-key     Invite a member with a scoped auth key
+  member-auth-keys          List issued member auth keys for a Room
+  revoke-member-auth-key    Revoke a member auth key
+
+Use "spaces room <subcommand> -h" for flag details.
+`)
 }
 
 func printTable(w io.Writer, header []string, rows [][]string) {

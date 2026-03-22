@@ -162,32 +162,33 @@ func printUsage(w io.Writer) {
 	fmt.Fprint(w, `Usage: spaces [--base-url URL] [--session-file PATH] <command> [options]
 
 Commands:
-  version
-  auth login
-  auth logout
-  whoami
-  room create
-  room list
-  room up
-  room down
-  room delete
-  room issue-member-auth-key
-  room member-auth-keys
-  room revoke-member-auth-key
-  ssh add-key
-  ssh list-keys
-  ssh remove-key
-  ssh issue-cert
-  ssh connect
-  ssh client-config
+  auth login                     Log in with email and auth key
+  auth logout                    End session and remove local credentials
+  whoami                         Show the currently authenticated user
+  room create                    Create a new Room
+  room list                      List Rooms you have access to
+  room up                        Start a Room
+  room down                      Stop a Room
+  room delete                    Permanently delete a Room
+  room issue-member-auth-key     Invite a member with a scoped auth key
+  room member-auth-keys          List issued member auth keys
+  room revoke-member-auth-key    Revoke a member auth key
+  ssh add-key                    Register an SSH public key
+  ssh list-keys                  List registered SSH keys
+  ssh remove-key                 Unregister an SSH key
+  ssh issue-cert                 Issue a short-lived SSH certificate
+  ssh connect                    Connect to a Room via SSH
+  ssh client-config              Generate an OpenSSH config block
+  version                        Print version
+  help                           Show this help
 
 Environment:
-  CRAKEN_BASE_URL      Override the default public control-plane base URL (https://spaces.borca.ai)
-  CRAKEN_SESSION_FILE  Override the local session file path
-  CRAKEN_SSH_HOST      Override SSH host for Room entry
-  CRAKEN_SSH_PORT      Override SSH port for Room entry (default: 22)
-  CRAKEN_SSH_LOGIN_USER Override SSH login user (default: craken-cell)
-  CRAKEN_SSH_BIN       Override ssh binary path for testing
+  SPACES_BASE_URL       Override default control-plane URL (https://spaces.borca.ai)
+  SPACES_SESSION_FILE   Override local session file path
+  SPACES_SSH_HOST       Override SSH host for Room entry
+  SPACES_SSH_PORT       Override SSH port (default: 22)
+  SPACES_SSH_LOGIN_USER Override SSH login user (default: craken-cell)
+  SPACES_SSH_BIN        Override ssh binary path
 `)
 }
 
@@ -204,4 +205,18 @@ func isHelpWord(value string) bool {
 	default:
 		return false
 	}
+}
+
+// containsHelpFlag returns true if any element of args is a help flag.
+// This lets dispatchers show subcommand help without requiring auth first.
+func containsHelpFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == "--" {
+			return false
+		}
+		if arg == "-h" || arg == "--help" || arg == "-help" {
+			return true
+		}
+	}
+	return false
 }

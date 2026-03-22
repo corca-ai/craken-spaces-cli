@@ -74,7 +74,7 @@ func TestAuthLoginUsesEnvironmentBaseURL(t *testing.T) {
 			},
 		},
 	})
-	t.Setenv("CRAKEN_BASE_URL", server.server.URL)
+	t.Setenv("SPACES_BASE_URL", server.server.URL)
 
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 
@@ -179,7 +179,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	if err := os.WriteFile(sshBin, []byte("#!/bin/sh\nprintf '%s\n' \"$@\" >\""+sshArgsFile+"\"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CRAKEN_SSH_BIN", sshBin)
+	t.Setenv("SPACES_SSH_BIN", sshBin)
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--room", "ws_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
@@ -207,7 +207,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 }
 
 func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
-	t.Setenv("CRAKEN_BASE_URL", "https://spaces-dev.borca.ai")
+	t.Setenv("SPACES_BASE_URL", "https://spaces-dev.borca.ai")
 
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 	if err := saveSession(sessionFile, localSession{
@@ -746,6 +746,57 @@ func TestWhoAmIRequiresAuth(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "not authenticated") {
 		t.Fatalf("stderr missing auth error: %s", stderr.String())
+	}
+}
+
+func TestSubcommandHelpWithoutAuth(t *testing.T) {
+	// No session file — help should still work for all subcommands.
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+
+	subcmds := [][]string{
+		{"room", "create", "-h"},
+		{"room", "up", "-h"},
+		{"room", "down", "-h"},
+		{"room", "delete", "-h"},
+		{"room", "issue-member-auth-key", "-h"},
+		{"room", "member-auth-keys", "-h"},
+		{"room", "revoke-member-auth-key", "-h"},
+		{"ssh", "add-key", "-h"},
+		{"ssh", "remove-key", "-h"},
+		{"ssh", "issue-cert", "-h"},
+		{"ssh", "connect", "-h"},
+		{"ssh", "client-config", "-h"},
+	}
+	for _, sub := range subcmds {
+		name := strings.Join(sub, " ")
+		t.Run(name, func(t *testing.T) {
+			args := append([]string{"--session-file", sessionFile}, sub...)
+			var stdout, stderr bytes.Buffer
+			code := run(args, &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("%s: code=%d stderr=%s", name, code, stderr.String())
+			}
+		})
+	}
+}
+
+func TestContainsHelpFlag(t *testing.T) {
+	tests := []struct {
+		args []string
+		want bool
+	}{
+		{[]string{"create", "-h"}, true},
+		{[]string{"create", "--help"}, true},
+		{[]string{"create", "-help"}, true},
+		{[]string{"create", "--name", "foo"}, false},
+		{[]string{"create", "--", "-h"}, false}, // -h after -- is not a help flag
+		{nil, false},
+	}
+	for _, tc := range tests {
+		got := containsHelpFlag(tc.args)
+		if got != tc.want {
+			t.Errorf("containsHelpFlag(%v) = %v, want %v", tc.args, got, tc.want)
+		}
 	}
 }
 

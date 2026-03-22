@@ -22,10 +22,10 @@ type cliConfig struct {
 const defaultPublicBaseURL = "https://spaces.borca.ai"
 
 func defaultSessionPath() string {
-	if path := os.Getenv("CRAKEN_SESSION_FILE"); strings.TrimSpace(path) != "" {
+	if path := os.Getenv("SPACES_SESSION_FILE"); strings.TrimSpace(path) != "" {
 		return path
 	}
-	if base := os.Getenv("CRAKEN_CONFIG_DIR"); base != "" {
+	if base := os.Getenv("SPACES_CONFIG_DIR"); base != "" {
 		return filepath.Join(base, "session.json")
 	}
 	home, err := os.UserHomeDir()
@@ -83,7 +83,7 @@ func envOrDefault(key, fallback string) string {
 }
 
 func configuredBaseURLOverride() string {
-	return normalizeBaseURL(os.Getenv("CRAKEN_BASE_URL"))
+	return normalizeBaseURL(os.Getenv("SPACES_BASE_URL"))
 }
 
 func (cfg cliConfig) resolveBaseURL(session *localSession) string {

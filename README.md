@@ -26,7 +26,7 @@ https://spaces.borca.ai
 Use the dev host or another deployment with:
 
 ```sh
-export CRAKEN_BASE_URL=https://spaces-dev.borca.ai
+export SPACES_BASE_URL=https://spaces-dev.borca.ai
 spaces <command> [options]
 spaces help
 ```

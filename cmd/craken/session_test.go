@@ -19,7 +19,7 @@ func TestRequireBaseURLFallsBackToDefaultProdDomain(t *testing.T) {
 }
 
 func TestResolveBaseURLPrefersEnvironmentOverSession(t *testing.T) {
-	t.Setenv("CRAKEN_BASE_URL", "https://spaces-dev.borca.ai/")
+	t.Setenv("SPACES_BASE_URL", "https://spaces-dev.borca.ai/")
 
 	cfg := cliConfig{}
 	session := &localSession{BaseURL: "https://spaces.borca.ai"}
@@ -31,7 +31,7 @@ func TestResolveBaseURLPrefersEnvironmentOverSession(t *testing.T) {
 }
 
 func TestDefaultSessionPathPrefersEnvVar(t *testing.T) {
-	t.Setenv("CRAKEN_SESSION_FILE", "/tmp/custom-session.json")
+	t.Setenv("SPACES_SESSION_FILE", "/tmp/custom-session.json")
 
 	got := defaultSessionPath()
 	if got != "/tmp/custom-session.json" {
@@ -40,7 +40,7 @@ func TestDefaultSessionPathPrefersEnvVar(t *testing.T) {
 }
 
 func TestResolveBaseURLPrefersExplicitFlagOverEnvironment(t *testing.T) {
-	t.Setenv("CRAKEN_BASE_URL", "https://spaces-dev.borca.ai")
+	t.Setenv("SPACES_BASE_URL", "https://spaces-dev.borca.ai")
 
 	cfg := cliConfig{BaseURL: "https://spaces.borca.ai"}
 
@@ -143,8 +143,8 @@ func TestRequireAuthenticatedClientNoSession(t *testing.T) {
 }
 
 func TestDefaultSessionPathUsesConfigDir(t *testing.T) {
-	t.Setenv("CRAKEN_SESSION_FILE", "")
-	t.Setenv("CRAKEN_CONFIG_DIR", "/tmp/test-config")
+	t.Setenv("SPACES_SESSION_FILE", "")
+	t.Setenv("SPACES_CONFIG_DIR", "/tmp/test-config")
 	got := defaultSessionPath()
 	if got != "/tmp/test-config/session.json" {
 		t.Fatalf("defaultSessionPath = %q, want config dir path", got)

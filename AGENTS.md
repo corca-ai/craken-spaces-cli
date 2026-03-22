@@ -43,12 +43,12 @@ Local-state client:
 
 | Variable | Required | Description |
 |---|---|---|
-| `CRAKEN_BASE_URL` | no | Override the default public control-plane base URL (`https://spaces.borca.ai`) |
-| `CRAKEN_SESSION_FILE` | no | Override local session file path |
-| `CRAKEN_SSH_HOST` | no | Override Room-entry SSH host |
-| `CRAKEN_SSH_PORT` | no | Override Room-entry SSH port (default: `22`) |
-| `CRAKEN_SSH_LOGIN_USER` | no | Room-entry SSH login user (default: `craken-cell`) |
-| `CRAKEN_SSH_BIN` | no | Override local `ssh` binary path |
+| `SPACES_BASE_URL` | no | Override the default public control-plane base URL (`https://spaces.borca.ai`) |
+| `SPACES_SESSION_FILE` | no | Override local session file path |
+| `SPACES_SSH_HOST` | no | Override Room-entry SSH host |
+| `SPACES_SSH_PORT` | no | Override Room-entry SSH port (default: `22`) |
+| `SPACES_SSH_LOGIN_USER` | no | Room-entry SSH login user (default: `craken-cell`) |
+| `SPACES_SSH_BIN` | no | Override local `ssh` binary path |
 
 ## Development
 

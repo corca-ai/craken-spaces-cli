@@ -58,31 +58,53 @@ Or download the binary directly:
 curl -sSfL https://raw.githubusercontent.com/corca-ai/craken-spaces-cli/main/install.sh | sh
 ```
 
-## Quick Start
+## Quick Start for Admins
 
-To get your auth key,
+Admins create Spaces and Rooms, invite members, and control resource
+budgets. To get your admin auth key,
 [join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) and you will
 receive one when your access is approved.
 
 ```sh
-# 1. Log in with your email and auth key
+# 1. Log in
 spaces auth login --email you@example.com --key YOUR_AUTH_KEY
 
 # 2. Create a Room
 spaces room create --name my-project
 # → created room ws_xxx (my-project)
 
-# 3. Register your SSH key
+# 3. Register your SSH key and connect
+spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
+spaces ssh connect --room ws_xxx
+
+# 4. Invite a team member with scoped resource limits
+spaces room issue-member-auth-key --room ws_xxx --email teammate@example.com
+# → share the printed auth key with your teammate
+```
+
+## Quick Start for Members
+
+Members receive an auth key from a Space admin. That key grants access
+to a Room with delegated resource limits.
+
+```sh
+# 1. Log in with the auth key you received
+spaces auth login --email you@example.com --key AUTH_KEY_FROM_ADMIN
+
+# 2. Register your SSH key (one-time setup)
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
 
-# 4. Connect to your Room (use the room ID from step 2)
+# 3. Find your Room ID
+spaces room list
+
+# 4. Connect to your Room
 spaces ssh connect --room ws_xxx
 ```
 
 ## Feature Specifications
 
 - [Authentication](auth.spec.md) -- login, logout, whoami
-- [Room Lifecycle](room.spec.md) -- create, list, up, down, delete, member auth keys
+- [Room Lifecycle](room.spec.md) -- admin room management, member invitations, member onboarding
 - [SSH Keys and Certificates](ssh.spec.md) -- add-key, list-keys, remove-key, issue-cert, connect, client-config
 
 ## Reference

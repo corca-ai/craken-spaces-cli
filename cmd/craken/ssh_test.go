@@ -56,7 +56,7 @@ func TestResolveSSHHost(t *testing.T) {
 		}
 	})
 	t.Run("env var", func(t *testing.T) {
-		t.Setenv("CRAKEN_SSH_HOST", "env-host.example.com")
+		t.Setenv("SPACES_SSH_HOST", "env-host.example.com")
 		got, err := resolveSSHHost("", "")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -209,7 +209,7 @@ func TestResolveSSHIdentityFileNoKeysFound(t *testing.T) {
 
 func TestResolveSSHBinary(t *testing.T) {
 	t.Run("env override", func(t *testing.T) {
-		t.Setenv("CRAKEN_SSH_BIN", "/usr/local/bin/custom-ssh")
+		t.Setenv("SPACES_SSH_BIN", "/usr/local/bin/custom-ssh")
 		got, err := resolveSSHBinary()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

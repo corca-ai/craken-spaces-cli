@@ -14,8 +14,8 @@ commands read that token automatically. Logging out removes the file.
 tmp=$(mktemp -d)
 cat > "$tmp/spaces" <<WRAPPER
 #!/bin/sh
-export CRAKEN_BASE_URL=$CRAKEN_BASE_URL
-export CRAKEN_SESSION_FILE=$tmp/session.json
+export SPACES_BASE_URL=$SPACES_BASE_URL
+export SPACES_SESSION_FILE=$tmp/session.json
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"

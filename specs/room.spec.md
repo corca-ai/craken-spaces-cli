@@ -8,6 +8,11 @@ A **Room** is your isolated machine inside a Space. Each Room has
 configurable resource limits for CPU, memory, disk, network egress,
 and LLM tokens.
 
+There are two roles in a Space:
+
+- **Admin** -- creates and manages Rooms, invites members, controls resource budgets.
+- **Member** -- receives an auth key from an admin, logs in, and uses their Room.
+
 The Room lifecycle is: **create** -> **up** (running) -> **down** (stopped) -> **delete**.
 
 ```run:shell -> $cli, $tmp
@@ -16,8 +21,8 @@ The Room lifecycle is: **create** -> **up** (running) -> **down** (stopped) -> *
 tmp=$(mktemp -d)
 cat > "$tmp/spaces" <<WRAPPER
 #!/bin/sh
-export CRAKEN_BASE_URL=$CRAKEN_BASE_URL
-export CRAKEN_SESSION_FILE=$tmp/session.json
+export SPACES_BASE_URL=$SPACES_BASE_URL
+export SPACES_SESSION_FILE=$tmp/session.json
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"
@@ -31,7 +36,11 @@ printf '%s\n' "$tmp/spaces" "$tmp"
 rm -rf ${tmp}
 ```
 
-## Create
+## Admin: Managing Rooms
+
+These commands are available to Space admins who create and control Rooms.
+
+### Create
 
 Create a new Room with a name. Default resource limits apply unless
 overridden with flags like `--cpu-millis`, `--memory-mib`, `--llm-tokens-limit`:
@@ -41,7 +50,7 @@ $ ${cli} room create --name my-room
 created room ws_1 (my-room)
 ```
 
-## List
+### List
 
 View all Rooms you have access to. The full table has columns:
 id, name, role, driver, state, cpu, memory, disk, net, llm_tokens, and
@@ -53,7 +62,7 @@ id name state
 ws_1 my-room stopped
 ```
 
-## Up and Down
+### Up and Down
 
 Start a Room to make it available for SSH connections:
 
@@ -69,7 +78,7 @@ $ ${cli} room down --room ws_1
 room ws_1 is stopped
 ```
 
-## Delete
+### Delete
 
 Permanently remove a Room and all its data:
 
@@ -78,10 +87,11 @@ $ ${cli} room delete --room ws_1
 deleted room ws_1
 ```
 
-## Member Auth Keys
+## Admin: Inviting Members
 
-Space admins can invite other users by issuing scoped auth keys. Each
-key grants the invitee access to a Room with delegated resource limits.
+Space admins invite members by issuing scoped auth keys. Each key grants
+the invitee access to a Room with delegated resource limits that the admin
+controls.
 
 ### Issuing a key
 
@@ -119,3 +129,25 @@ Revoke a key to immediately deny the member's access:
 $ ${cli} room revoke-member-auth-key --room ws_2 --id 1
 revoked room member auth key 1
 ```
+
+## Member: Getting Started
+
+As a member, you receive an auth key from a Space admin. Here is the
+typical flow to get into your Room:
+
+```sh
+# 1. Log in with the auth key you received
+spaces auth login --email you@example.com --key AUTH_KEY_FROM_ADMIN
+
+# 2. Register your SSH public key (one-time setup)
+spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
+
+# 3. List your Rooms to find the Room ID
+spaces room list
+
+# 4. Connect to your Room
+spaces ssh connect --room ws_xxx
+```
+
+Once inside, you have a full machine with your own filesystem, processes,
+and network -- isolated from every other member and agent in the Space.
