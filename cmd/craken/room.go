@@ -60,8 +60,8 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		runtimeDriver := fs.String("runtime-driver", "mock", "runtime driver")
 		cpuMillis := fs.Int("cpu-millis", 4000, "room CPU ceiling in millicores")
 		memoryMiB := fs.Int("memory-mib", 8192, "room memory ceiling in MiB")
-		diskMB := fs.Int("disk-mb", 10240, "room writable disk ceiling in MiB")
-		networkMB := fs.Int("network-egress-mb", 1024, "room cumulative network egress ceiling in MiB")
+		diskMB := fs.Int("disk-mb", 10240, "room writable disk ceiling in MB")
+		networkMB := fs.Int("network-egress-mb", 1024, "room cumulative network egress ceiling in MB")
 		llmTokens := fs.Int("llm-tokens-limit", 100000, "room LLM token ceiling")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {

@@ -554,6 +554,201 @@ func TestAuthLogout(t *testing.T) {
 	}
 }
 
+func TestVersionCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"version"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("version code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "spaces ") {
+		t.Fatalf("stdout missing version prefix: %s", stdout.String())
+	}
+}
+
+func TestHelpCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"help"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("help code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Usage:") {
+		t.Fatalf("stdout missing usage text: %s", stdout.String())
+	}
+}
+
+func TestNoArgsShowsUsage(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+}
+
+func TestUnknownCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"bogus"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), `unknown command "bogus"`) {
+		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestAuthUnknownSubcommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"auth", "bogus"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), `unknown auth subcommand "bogus"`) {
+		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestAuthHelpAndNoArgs(t *testing.T) {
+	t.Run("no args", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"auth"}, &stdout, &stderr)
+		if code != 2 {
+			t.Fatalf("expected exit code 2, got %d", code)
+		}
+	})
+	t.Run("help", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"auth", "help"}, &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("expected exit code 0, got %d", code)
+		}
+	})
+	t.Run("-h", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"auth", "-h"}, &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("expected exit code 0, got %d", code)
+		}
+	})
+	t.Run("--help", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"auth", "--help"}, &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("expected exit code 0, got %d", code)
+		}
+	})
+}
+
+func TestSSHUnknownSubcommand(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "bogus"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), `unknown ssh subcommand "bogus"`) {
+		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestSSHHelpAndNoArgs(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("no args", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"--session-file", sessionFile, "ssh"}, &stdout, &stderr)
+		if code != 2 {
+			t.Fatalf("expected exit code 2, got %d", code)
+		}
+	})
+	t.Run("help", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"--session-file", sessionFile, "ssh", "help"}, &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("expected exit code 0, got %d", code)
+		}
+	})
+}
+
+func TestSSHRequiresAuth(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "list-keys"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "not authenticated") {
+		t.Fatalf("stderr missing auth error: %s", stderr.String())
+	}
+}
+
+func TestSSHRemoveKeyRequiresFingerprint(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "remove-key"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when --fingerprint is missing")
+	}
+	if !strings.Contains(stderr.String(), "--fingerprint is required") {
+		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestSSHConnectRequiresRoom(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when --room is missing")
+	}
+	if !strings.Contains(stderr.String(), "--room is required") {
+		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestSSHClientConfigRequiresRoom(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "client-config"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when --room is missing")
+	}
+	if !strings.Contains(stderr.String(), "--room is required") {
+		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestWhoAmIRequiresAuth(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "whoami"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "not authenticated") {
+		t.Fatalf("stderr missing auth error: %s", stderr.String())
+	}
+}
+
 func TestProtocolFileMatchesManagedAgentsWhenPresent(t *testing.T) {
 	localPath := filepath.Join("..", "..", "protocol", "public-api-v1.openapi.yaml")
 	managedPath := filepath.Join("..", "..", "..", "craken-managed-agents", "protocol", "public-api-v1.openapi.yaml")

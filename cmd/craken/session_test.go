@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -83,6 +84,70 @@ func TestNormalizeBaseURL(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("normalizeBaseURL(%q) = %q, want %q", tc.input, got, tc.want)
 		}
+	}
+}
+
+func TestLoadSessionNonExistent(t *testing.T) {
+	session, err := loadSession(filepath.Join(t.TempDir(), "no-such-file.json"))
+	if err != nil {
+		t.Fatalf("loadSession on missing file: %v", err)
+	}
+	if session != nil {
+		t.Fatal("expected nil session for missing file")
+	}
+}
+
+func TestLoadSessionInvalidJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.json")
+	if err := os.WriteFile(path, []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := loadSession(path)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestSaveAndLoadSessionRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sub", "session.json")
+	session := localSession{
+		BaseURL:      "https://example.com/",
+		Email:        "test@example.com",
+		SessionToken: "tok_123",
+	}
+	if err := saveSession(path, session); err != nil {
+		t.Fatalf("saveSession: %v", err)
+	}
+	loaded, err := loadSession(path)
+	if err != nil {
+		t.Fatalf("loadSession: %v", err)
+	}
+	if loaded == nil {
+		t.Fatal("expected non-nil session")
+	}
+	if loaded.Email != session.Email || loaded.SessionToken != session.SessionToken {
+		t.Fatalf("loaded session mismatch: %+v", loaded)
+	}
+	// BaseURL should be normalized (trailing slash removed)
+	if loaded.BaseURL != "https://example.com" {
+		t.Fatalf("BaseURL not normalized: %q", loaded.BaseURL)
+	}
+}
+
+func TestRequireAuthenticatedClientNoSession(t *testing.T) {
+	cfg := cliConfig{SessionFile: filepath.Join(t.TempDir(), "session.json")}
+	_, _, err := cfg.requireAuthenticatedClient()
+	if err == nil {
+		t.Fatal("expected error when no session exists")
+	}
+}
+
+func TestDefaultSessionPathUsesConfigDir(t *testing.T) {
+	t.Setenv("CRAKEN_SESSION_FILE", "")
+	t.Setenv("CRAKEN_CONFIG_DIR", "/tmp/test-config")
+	got := defaultSessionPath()
+	if got != "/tmp/test-config/session.json" {
+		t.Fatalf("defaultSessionPath = %q, want config dir path", got)
 	}
 }
 

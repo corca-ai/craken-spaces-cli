@@ -13,7 +13,6 @@ entry.
 
 - Spec index and report entrypoint: [specs/index.spec.md](specs/index.spec.md)
 - Testing and validation: [specs/testing.spec.md](specs/testing.spec.md)
-- Current implementation snapshot: [specs/current-status.spec.md](specs/current-status.spec.md)
 - Public API contract snapshot: [protocol/public-api-v1.openapi.yaml](protocol/public-api-v1.openapi.yaml)
 
 ## Canonical validation

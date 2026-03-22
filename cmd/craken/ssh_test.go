@@ -121,6 +121,114 @@ func TestSshCertificateFileForIdentity(t *testing.T) {
 	}
 }
 
+func writeKeyPair(t *testing.T, dir, name string) (privKey, pubKey string) {
+	t.Helper()
+	privKey = filepath.Join(dir, name)
+	pubKey = privKey + ".pub"
+	if err := os.WriteFile(privKey, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pubKey, []byte("public"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return privKey, pubKey
+}
+
+func TestResolveSSHIdentityFileExplicit(t *testing.T) {
+	privKey, pubKey := writeKeyPair(t, t.TempDir(), "id_test")
+	gotPriv, gotPub, err := resolveSSHIdentityFile(privKey)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPriv != privKey || gotPub != pubKey {
+		t.Fatalf("got (%q, %q), want (%q, %q)", gotPriv, gotPub, privKey, pubKey)
+	}
+}
+
+func TestResolveSSHIdentityFileStripsPubSuffix(t *testing.T) {
+	privKey, pubKey := writeKeyPair(t, t.TempDir(), "id_test")
+	gotPriv, gotPub, err := resolveSSHIdentityFile(pubKey)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPriv != privKey || gotPub != pubKey {
+		t.Fatalf("got (%q, %q), want (%q, %q)", gotPriv, gotPub, privKey, pubKey)
+	}
+}
+
+func TestResolveSSHIdentityFileExplicitMissing(t *testing.T) {
+	_, _, err := resolveSSHIdentityFile(filepath.Join(t.TempDir(), "nonexistent"))
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestResolveSSHIdentityFilePublicKeyMissing(t *testing.T) {
+	dir := t.TempDir()
+	privKey := filepath.Join(dir, "id_test")
+	if err := os.WriteFile(privKey, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := resolveSSHIdentityFile(privKey)
+	if err == nil {
+		t.Fatal("expected error when public key is missing")
+	}
+}
+
+func TestResolveSSHIdentityFileFallbackToHome(t *testing.T) {
+	dir := t.TempDir()
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	privKey, _ := writeKeyPair(t, sshDir, "id_ed25519")
+	t.Setenv("HOME", dir)
+	gotPriv, gotPub, err := resolveSSHIdentityFile("")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPriv != privKey || gotPub != privKey+".pub" {
+		t.Fatalf("got (%q, %q)", gotPriv, gotPub)
+	}
+}
+
+func TestResolveSSHIdentityFileNoKeysFound(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", dir)
+	_, _, err := resolveSSHIdentityFile("")
+	if err == nil {
+		t.Fatal("expected error when no SSH keys found")
+	}
+	if !strings.Contains(err.Error(), "no SSH identity file was found") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestResolveSSHBinary(t *testing.T) {
+	t.Run("env override", func(t *testing.T) {
+		t.Setenv("CRAKEN_SSH_BIN", "/usr/local/bin/custom-ssh")
+		got, err := resolveSSHBinary()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "/usr/local/bin/custom-ssh" {
+			t.Fatalf("got %q, want env override", got)
+		}
+	})
+	t.Run("default from path", func(t *testing.T) {
+		got, err := resolveSSHBinary()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got == "" {
+			t.Fatal("expected non-empty path")
+		}
+	})
+}
+
 func TestPrintTable(t *testing.T) {
 	var buf bytes.Buffer
 	header := []string{"id", "name", "status"}

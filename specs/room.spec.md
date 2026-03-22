@@ -103,7 +103,7 @@ The invitee can then log in with `spaces auth login --email bob@example.com --ke
 ### Listing keys
 
 View all issued keys for a Room, including their status. The full table
-has columns: id, email, status, and created_at. Here we show the key columns:
+has columns: id, email, status, expires_at, and issued_at. Here we show the key columns:
 
 ```run:shell
 $ ${cli} room member-auth-keys --room ws_2 | awk '{print $1, $2, $3}'
