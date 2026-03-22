@@ -51,8 +51,8 @@ func run(argv []string, stdout, stderr io.Writer) int {
 		return cmdAuth(cfg, args[1:], stdout, stderr)
 	case "whoami":
 		return cmdWhoAmI(cfg, stdout, stderr)
-	case "workspace":
-		return cmdWorkspace(cfg, args[1:], stdout, stderr)
+	case "room":
+		return cmdRoom(cfg, args[1:], stdout, stderr)
 	case "ssh":
 		return cmdSSH(cfg, args[1:], stdout, stderr)
 	default:
@@ -166,14 +166,14 @@ Commands:
   auth login
   auth logout
   whoami
-  workspace create
-  workspace list
-  workspace up
-  workspace down
-  workspace delete
-  workspace issue-member-auth-key
-  workspace member-auth-keys
-  workspace revoke-member-auth-key
+  room create
+  room list
+  room up
+  room down
+  room delete
+  room issue-member-auth-key
+  room member-auth-keys
+  room revoke-member-auth-key
   ssh add-key
   ssh list-keys
   ssh remove-key
@@ -184,8 +184,8 @@ Commands:
 Environment:
   CRAKEN_BASE_URL      Override the default public control-plane base URL (https://agents.borca.ai)
   CRAKEN_SESSION_FILE  Override the local session file path
-  CRAKEN_SSH_HOST      Override SSH host for Cell entry
-  CRAKEN_SSH_PORT      Override SSH port for Cell entry (default: 22)
+  CRAKEN_SSH_HOST      Override SSH host for Room entry
+  CRAKEN_SSH_PORT      Override SSH port for Room entry (default: 22)
   CRAKEN_SSH_LOGIN_USER Override SSH login user (default: craken-cell)
   CRAKEN_SSH_BIN       Override ssh binary path for testing
 `)

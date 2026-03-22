@@ -108,7 +108,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 	case "client-config":
 		fs := flag.NewFlagSet("ssh client-config", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("workspace", "", "workspace ID to target")
+		workspaceID := fs.String("room", "", "room ID to target")
 		host := fs.String("host", "", "SSH host name")
 		user := fs.String("user", envOrDefault("CRAKEN_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("CRAKEN_SSH_PORT", 22), "SSH port")
@@ -121,7 +121,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 			return 2
 		}
 		if strings.TrimSpace(*workspaceID) == "" {
-			fmt.Fprintln(stderr, "error: --workspace is required")
+			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
 		resolvedHost, err := resolveSSHHost(*host, client.BaseURL)
@@ -155,13 +155,13 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 	case "connect":
 		fs := flag.NewFlagSet("ssh connect", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("workspace", "", "workspace ID to target")
+		workspaceID := fs.String("room", "", "room ID to target")
 		host := fs.String("host", "", "SSH host name")
 		user := fs.String("user", envOrDefault("CRAKEN_SSH_LOGIN_USER", "craken-cell"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("CRAKEN_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
 		certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
-		remoteCommand := fs.String("command", "", "optional command to run inside the Cell")
+		remoteCommand := fs.String("command", "", "optional command to run inside the Room")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
@@ -169,7 +169,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 			return 2
 		}
 		if strings.TrimSpace(*workspaceID) == "" {
-			fmt.Fprintln(stderr, "error: --workspace is required")
+			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
 		resolvedHost, err := resolveSSHHost(*host, client.BaseURL)

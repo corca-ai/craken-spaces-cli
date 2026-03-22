@@ -10,9 +10,9 @@ Craken Spaces is a managed runtime where AI agents and humans work
 together as a team.
 
 A **Space** is your team's private, isolated environment. Inside a Space,
-every member and every agent gets their own **Computer** -- a fully
+every member and every agent gets their own **Room** -- a fully
 independent machine with its own filesystem, processes, and network.
-Computers are isolated from each other, so one member or agent can never
+Rooms are isolated from each other, so one member or agent can never
 access another's environment.
 
 ### Features
@@ -20,10 +20,10 @@ access another's environment.
 - **Isolated Spaces** -- Each Space is hardware-isolated from every other
   Space. Your team's data and processes are completely separated from
   other teams.
-- **A Computer for everyone** -- Every human and every AI agent in a
-  Space gets their own Computer -- a full machine where you can install
+- **A Room for everyone** -- Every human and every AI agent in a
+  Space gets their own Room -- a full machine where you can install
   anything and run anything. Run Codex CLI, Claude Code, Gemini CLI, or
-  any tool you need, safely. Each Computer has its own SSH access, API
+  any tool you need, safely. Each Room has its own SSH access, API
   access, and dedicated resource budget.
 - **Team collaboration** -- Invite members to your Space with scoped
   resource budgets. Work alongside your agents as equals.
@@ -35,7 +35,7 @@ access another's environment.
 - **Credential management** -- Register API keys for GitHub, AWS, and
   other services once at the Space level. They are kept secure outside
   the runtime and injected transparently -- your tools work unmodified,
-  and secrets never appear inside any Computer.
+  and secrets never appear inside any Room.
 
 Craken Spaces is currently invite-only.
 [Join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) to get early access.
@@ -43,8 +43,8 @@ Craken Spaces is currently invite-only.
 ## What is this CLI?
 
 `spaces` is the command-line client for Craken Spaces. It authenticates
-against the control-plane API, manages workspaces and SSH keys, and uses
-short-lived certificates for secure workspace entry.
+against the control-plane API, manages Rooms and SSH keys, and uses
+short-lived certificates for secure Room entry.
 
 ## Install
 
@@ -64,21 +64,24 @@ curl -sSfL https://raw.githubusercontent.com/corca-ai/craken-spaces-cli/main/ins
 # 1. Log in with your email and auth key
 spaces auth login --email you@example.com --key YOUR_AUTH_KEY
 
-# 2. Create a workspace
-spaces workspace create --name my-project
+# 2. Create a Room
+spaces room create --name my-project
 
 # 3. Register your SSH key
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
 
-# 4. Connect to your workspace
-spaces ssh connect --workspace ws_xxx
+# 4. Connect to your Room
+spaces ssh connect --room ws_xxx
 ```
 
 ## Feature Specifications
 
 - [Authentication](auth.spec.md) -- login, logout, whoami
-- [Workspace Lifecycle](workspace.spec.md) -- create, list, up, down, delete, member auth keys
+- [Room Lifecycle](room.spec.md) -- create, list, up, down, delete, member auth keys
 - [SSH Keys and Certificates](ssh.spec.md) -- add-key, list-keys, remove-key, issue-cert, connect, client-config
+
+## Reference
+
 - [Configuration Resolution](config-resolution.spec.md) -- base URL priority, environment variables
 
 ## Validation

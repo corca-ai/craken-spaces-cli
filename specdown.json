@@ -20,8 +20,13 @@
       "group": "Features",
       "docs": [
         "specs/auth.spec.md",
-        "specs/workspace.spec.md",
-        "specs/ssh.spec.md",
+        "specs/room.spec.md",
+        "specs/ssh.spec.md"
+      ]
+    },
+    {
+      "group": "Reference",
+      "docs": [
         "specs/config-resolution.spec.md"
       ]
     },

@@ -38,9 +38,9 @@ type memberAuthKeyRecord struct {
 	LLMTokensLimit  int    `json:"llm_tokens_limit"`
 }
 
-func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
+func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
 	if len(argv) == 0 || isHelpWord(argv[0]) {
-		printWorkspaceUsage(stdout)
+		printRoomUsage(stdout)
 		if len(argv) == 0 {
 			return 2
 		}
@@ -54,15 +54,15 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 
 	switch argv[0] {
 	case "create":
-		fs := flag.NewFlagSet("workspace create", flag.ContinueOnError)
+		fs := flag.NewFlagSet("room create", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		name := fs.String("name", "", "workspace name")
+		name := fs.String("name", "", "room name")
 		runtimeDriver := fs.String("runtime-driver", "mock", "runtime driver")
-		cpuMillis := fs.Int("cpu-millis", 4000, "workspace CPU ceiling in millicores")
-		memoryMiB := fs.Int("memory-mib", 8192, "workspace memory ceiling in MiB")
-		diskMB := fs.Int("disk-mb", 10240, "workspace writable disk ceiling in MiB")
-		networkMB := fs.Int("network-egress-mb", 1024, "workspace cumulative network egress ceiling in MiB")
-		llmTokens := fs.Int("llm-tokens-limit", 100000, "workspace LLM token ceiling")
+		cpuMillis := fs.Int("cpu-millis", 4000, "room CPU ceiling in millicores")
+		memoryMiB := fs.Int("memory-mib", 8192, "room memory ceiling in MiB")
+		diskMB := fs.Int("disk-mb", 10240, "room writable disk ceiling in MiB")
+		networkMB := fs.Int("network-egress-mb", 1024, "room cumulative network egress ceiling in MiB")
+		llmTokens := fs.Int("llm-tokens-limit", 100000, "room LLM token ceiling")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
@@ -90,7 +90,7 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "created workspace %s (%s)\n", response.Workspace.ID, response.Workspace.Name)
+		fmt.Fprintf(stdout, "created room %s (%s)\n", response.Workspace.ID, response.Workspace.Name)
 		return 0
 
 	case "list":
@@ -124,9 +124,9 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 		return 0
 
 	case "up", "down":
-		fs := flag.NewFlagSet("workspace "+argv[0], flag.ContinueOnError)
+		fs := flag.NewFlagSet("room "+argv[0], flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("workspace", "", "workspace ID")
+		workspaceID := fs.String("room", "", "room ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
@@ -134,7 +134,7 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			return 2
 		}
 		if strings.TrimSpace(*workspaceID) == "" {
-			fmt.Fprintln(stderr, "error: --workspace is required")
+			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
 		action := "up"
@@ -150,13 +150,13 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "workspace %s is %s\n", response.Workspace.ID, response.Workspace.RuntimeState)
+		fmt.Fprintf(stdout, "room %s is %s\n", response.Workspace.ID, response.Workspace.RuntimeState)
 		return 0
 
 	case "delete":
-		fs := flag.NewFlagSet("workspace delete", flag.ContinueOnError)
+		fs := flag.NewFlagSet("room delete", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("workspace", "", "workspace ID")
+		workspaceID := fs.String("room", "", "room ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
@@ -164,21 +164,21 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			return 2
 		}
 		if strings.TrimSpace(*workspaceID) == "" {
-			fmt.Fprintln(stderr, "error: --workspace is required")
+			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
 		if err := client.doJSON("DELETE", "/api/v1/workspaces/"+*workspaceID+"/delete", nil, nil); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "deleted workspace %s\n", *workspaceID)
+		fmt.Fprintf(stdout, "deleted room %s\n", *workspaceID)
 		return 0
 
 	case "issue-member-auth-key":
-		fs := flag.NewFlagSet("workspace issue-member-auth-key", flag.ContinueOnError)
+		fs := flag.NewFlagSet("room issue-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("workspace", "", "workspace ID")
-		email := fs.String("email", "", "workspace member email address")
+		workspaceID := fs.String("room", "", "room ID")
+		email := fs.String("email", "", "room member email address")
 		expiresHours := fs.Int("expires-hours", 24*7, "lifetime in hours")
 		cpuMillis := fs.Int("cpu-millis", 1000, "delegated CPU ceiling")
 		memoryMiB := fs.Int("memory-mib", 1024, "delegated memory ceiling")
@@ -192,7 +192,7 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			return 2
 		}
 		if strings.TrimSpace(*workspaceID) == "" || strings.TrimSpace(*email) == "" {
-			fmt.Fprintln(stderr, "error: --workspace and --email are required")
+			fmt.Fprintln(stderr, "error: --room and --email are required")
 			return 2
 		}
 		var response struct {
@@ -213,15 +213,15 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "issued workspace member auth key %d for %s\n", response.AuthKey.ID, response.AuthKey.InviteeEmail)
+		fmt.Fprintf(stdout, "issued room member auth key %d for %s\n", response.AuthKey.ID, response.AuthKey.InviteeEmail)
 		fmt.Fprintf(stdout, "auth key=%s\n", response.Key)
 		fmt.Fprintf(stdout, "expires_at=%s\n", response.AuthKey.ExpiresAt)
 		return 0
 
 	case "member-auth-keys":
-		fs := flag.NewFlagSet("workspace member-auth-keys", flag.ContinueOnError)
+		fs := flag.NewFlagSet("room member-auth-keys", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("workspace", "", "workspace ID")
+		workspaceID := fs.String("room", "", "room ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
@@ -229,7 +229,7 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			return 2
 		}
 		if strings.TrimSpace(*workspaceID) == "" {
-			fmt.Fprintln(stderr, "error: --workspace is required")
+			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
 		var response struct {
@@ -263,9 +263,9 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 		return 0
 
 	case "revoke-member-auth-key":
-		fs := flag.NewFlagSet("workspace revoke-member-auth-key", flag.ContinueOnError)
+		fs := flag.NewFlagSet("room revoke-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		workspaceID := fs.String("workspace", "", "workspace ID")
+		workspaceID := fs.String("room", "", "room ID")
 		authKeyID := fs.Int64("id", 0, "auth key ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
@@ -274,26 +274,26 @@ func cmdWorkspace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { 
 			return 2
 		}
 		if strings.TrimSpace(*workspaceID) == "" || *authKeyID <= 0 {
-			fmt.Fprintln(stderr, "error: --workspace and --id are required")
+			fmt.Fprintln(stderr, "error: --room and --id are required")
 			return 2
 		}
 		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/workspaces/%s/member-auth-keys/%d", *workspaceID, *authKeyID), nil, nil); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "revoked workspace member auth key %d\n", *authKeyID)
+		fmt.Fprintf(stdout, "revoked room member auth key %d\n", *authKeyID)
 		return 0
 
 	default:
-		fmt.Fprintf(stderr, "error: unknown workspace subcommand %q\n\n", argv[0])
-		printWorkspaceUsage(stderr)
+		fmt.Fprintf(stderr, "error: unknown room subcommand %q\n\n", argv[0])
+		printRoomUsage(stderr)
 		return 2
 	}
 }
 
-func printWorkspaceUsage(w io.Writer) {
+func printRoomUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  spaces workspace <create|list|up|down|delete|issue-member-auth-key|member-auth-keys|revoke-member-auth-key> [flags]")
+	fmt.Fprintln(w, "  spaces room <create|list|up|down|delete|issue-member-auth-key|member-auth-keys|revoke-member-auth-key> [flags]")
 }
 
 func printTable(w io.Writer, header []string, rows [][]string) {

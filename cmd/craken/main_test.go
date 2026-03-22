@@ -93,7 +93,7 @@ func TestAuthLoginUsesEnvironmentBaseURL(t *testing.T) {
 	}
 }
 
-func TestWorkspaceIssueMemberAuthKey(t *testing.T) {
+func TestRoomIssueMemberAuthKey(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
 		"issueWorkspaceMemberAuthKey": {
 			Body: map[string]any{
@@ -138,9 +138,9 @@ func TestWorkspaceIssueMemberAuthKey(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "workspace", "issue-member-auth-key", "--workspace", "ws_123", "--email", "bob@example.com"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "ws_123", "--email", "bob@example.com"}, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("workspace issue-member-auth-key code=%d stderr=%s", code, stderr.String())
+		t.Fatalf("room issue-member-auth-key code=%d stderr=%s", code, stderr.String())
 	}
 	if got := stdout.String(); !strings.Contains(got, "wmauth_test") {
 		t.Fatalf("stdout missing auth key: %s", got)
@@ -182,7 +182,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	t.Setenv("CRAKEN_SSH_BIN", sshBin)
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--workspace", "ws_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--room", "ws_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("ssh connect code=%d stderr=%s", code, stderr.String())
 	}
@@ -227,7 +227,7 @@ func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
 	code := run([]string{
 		"--session-file", sessionFile,
 		"ssh", "client-config",
-		"--workspace", "ws_123",
+		"--room", "ws_123",
 		"--identity-file", identityFile,
 	}, &stdout, &stderr)
 	if code != 0 {
@@ -235,6 +235,58 @@ func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "HostName agents-dev.borca.ai") {
 		t.Fatalf("stdout missing env-resolved host:\n%s", stdout.String())
+	}
+}
+
+func TestAuthLoginRequiresEmailAndKey(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+
+	// Missing --key
+	code := run([]string{"--session-file", sessionFile, "auth", "login", "--email", "alice@example.com"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when --key is missing")
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	// Missing --email
+	code = run([]string{"--session-file", sessionFile, "auth", "login", "--key", "test-key"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when --email is missing")
+	}
+}
+
+func TestRoomCreateRequiresName(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authLogin": {
+			Body: map[string]any{"ok": true, "email": "alice@example.com", "session_token": "sess_test"},
+		},
+	})
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "room", "create"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when --name is missing")
+	}
+}
+
+func TestRoomUpRequiresRoomFlag(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "room", "up"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when --room is missing")
+	}
+	if !strings.Contains(stderr.String(), "--room is required") {
+		t.Fatalf("stderr missing expected message: %s", stderr.String())
 	}
 }
 

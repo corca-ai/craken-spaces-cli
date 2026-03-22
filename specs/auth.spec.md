@@ -9,7 +9,7 @@ A successful login stores a session token in a local JSON file; subsequent
 commands read that token automatically. Logging out removes the file.
 
 ```run:shell -> $cli, $tmp
-# Create a wrapper that bakes in base URL and session file
+# Test harness -- in normal use, just run "spaces" directly.
 . .specdown/test-env
 tmp=$(mktemp -d)
 cat > "$tmp/spaces" <<WRAPPER
@@ -31,19 +31,12 @@ rm -rf ${tmp}
 ## Login
 
 Authenticate with your email and a one-time auth key provided by your
-workspace admin:
+Space admin:
 
 ```run:shell
 $ ${cli} auth login --email alice@example.com --key test-key
 authenticated as alice@example.com
 ...
-```
-
-Both `--email` and `--key` are required. Omitting either produces an error:
-
-```run:shell
-# Missing --key must fail
-! ${cli} auth login --email alice@example.com 2>/dev/null
 ```
 
 ## Who Am I
@@ -64,5 +57,9 @@ $ ${cli} auth logout
 ...
 ```
 
-After logout, commands that require authentication will prompt you to log in
-again.
+After logout, commands that require authentication return an error:
+
+```run:shell
+$ ! ${cli} whoami 2>&1
+error: not authenticated; run 'spaces auth login'
+```

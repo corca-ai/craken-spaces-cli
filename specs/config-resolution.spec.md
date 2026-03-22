@@ -23,7 +23,7 @@ This spec exercises the precedence rules directly, so it uses the raw binary
 with explicit environment variables instead of the wrapper.
 
 ```run:shell -> $bin, $url, $tmp
-# Load test environment without wrapper
+# Test harness -- loads raw binary without the wrapper.
 . .specdown/test-env
 tmp=$(mktemp -d)
 export CRAKEN_BASE_URL
@@ -54,7 +54,7 @@ When `CRAKEN_BASE_URL` is set, it takes precedence over the base URL saved in
 the session file:
 
 ```run:shell
-$ CRAKEN_BASE_URL=https://agents-dev.borca.ai CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --workspace ws_1 --identity-file ${tmp}/id_test | grep HostName
+$ CRAKEN_BASE_URL=https://agents-dev.borca.ai CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test | grep HostName
   HostName agents-dev.borca.ai
 ```
 
@@ -73,12 +73,12 @@ SSH-related environment variables override defaults:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CRAKEN_SSH_HOST` | derived from base URL | Cell-entry SSH host |
-| `CRAKEN_SSH_PORT` | `22` | Cell-entry SSH port |
+| `CRAKEN_SSH_HOST` | derived from base URL | Room-entry SSH host |
+| `CRAKEN_SSH_PORT` | `22` | Room-entry SSH port |
 | `CRAKEN_SSH_LOGIN_USER` | `craken-cell` | SSH login user |
 | `CRAKEN_SSH_BIN` | `ssh` from PATH | local ssh binary |
 
 ```run:shell
-$ CRAKEN_SSH_LOGIN_USER=custom-user CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --workspace ws_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
+$ CRAKEN_SSH_LOGIN_USER=custom-user CRAKEN_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room ws_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
   User custom-user
 ```

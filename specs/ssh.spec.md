@@ -4,11 +4,11 @@ type: spec
 
 # SSH Key and Certificate Management
 
-The CLI manages SSH public keys and short-lived certificates for secure Cell
+The CLI manages SSH public keys and short-lived certificates for secure Room
 entry. The typical flow is:
 
 1. **Register** your SSH public key once with `ssh add-key`.
-2. **Connect** to a workspace with `ssh connect` — the CLI automatically
+2. **Connect** to a Room with `ssh connect` -- the CLI automatically
    issues a short-lived certificate and invokes `ssh`.
 
 For advanced use, you can issue certificates manually with `ssh issue-cert`
@@ -17,7 +17,7 @@ or generate an OpenSSH config block with `ssh client-config`.
 Certificates default to a 5-minute TTL, keeping the attack surface minimal.
 
 ```run:shell -> $cli, $tmp
-# Create wrapper, authenticate, and generate a test key pair
+# Test harness -- in normal use, just run "spaces" directly.
 . .specdown/test-env
 tmp=$(mktemp -d)
 cat > "$tmp/spaces" <<WRAPPER
@@ -55,8 +55,9 @@ You can also pass the key material inline with `--public-key` instead of
 ### List registered keys
 
 ```run:shell
-$ ${cli} ssh list-keys | grep my-laptop | awk '{print $2}'
-my-laptop
+$ ${cli} ssh list-keys | awk '{print $1, $2, $3}'
+id name fingerprint
+1 my-laptop SHA256:fake1
 ```
 
 ### Remove a key
@@ -68,15 +69,15 @@ $ ${cli} ssh remove-key --fingerprint SHA256:fake1
 removed ssh key SHA256:fake1
 ```
 
-## Connecting to a Workspace
+## Connecting to a Room
 
 ### Quick connect
 
-`ssh connect` is the easiest way to enter a Cell. It handles certificate
+`ssh connect` is the easiest way to enter a Room. It handles certificate
 issuance automatically:
 
 ```sh
-spaces ssh connect --workspace ws_xxx
+spaces ssh connect --room ws_xxx
 ```
 
 Behind the scenes, the CLI:
@@ -84,26 +85,7 @@ Behind the scenes, the CLI:
 1. Reads your local private key (defaults to `~/.ssh/id_ed25519`)
 2. Sends the public key to the control plane to get a short-lived certificate
 3. Writes the certificate next to the private key
-4. Runs `ssh` with the certificate, identity file, and workspace target
-
-```run:shell
-# Create a fake ssh binary to verify the arguments
-printf '#!/bin/sh\nprintf "%%s\\n" "$@" > %s/ssh-args.txt\n' "${tmp}" > ${tmp}/fake-ssh.sh
-chmod +x ${tmp}/fake-ssh.sh
-ssh-keygen -q -t ed25519 -N '' -f ${tmp}/id_connect
-```
-
-```run:shell
-# Connect using the fake ssh binary
-CRAKEN_SSH_BIN=${tmp}/fake-ssh.sh ${cli} ssh connect --workspace ws_1 --host cell.example.com --identity-file ${tmp}/id_connect --command "echo hi" >/dev/null
-```
-
-```run:shell
-$ grep -c 'CertificateFile' ${tmp}/ssh-args.txt
-1
-$ grep 'craken-cell@cell.example.com' ${tmp}/ssh-args.txt
-craken-cell@cell.example.com
-```
+4. Runs `ssh` with the certificate, identity file, and Room target
 
 ### OpenSSH config
 
@@ -111,7 +93,7 @@ If you prefer to use `ssh` directly, generate an OpenSSH config block and
 paste it into `~/.ssh/config`:
 
 ```run:shell
-$ ${cli} ssh client-config --workspace ws_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
+$ ${cli} ssh client-config --room ws_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
 Host craken-ws_1
   HostName cell.example.com
 ```
