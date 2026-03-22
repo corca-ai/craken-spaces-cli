@@ -5,12 +5,14 @@ type: spec
 # SSH Key and Certificate Management
 
 The CLI manages SSH public keys and short-lived certificates for secure Cell
-entry. The flow is:
+entry. The typical flow is:
 
-1. **Register** a local SSH public key with the control plane (`ssh add-key`).
-2. **Issue** a short-lived certificate signed by the platform CA (`ssh issue-cert`).
-3. **Connect** to a Cell using the certificate (`ssh connect`), or generate an
-   OpenSSH config block (`ssh client-config`).
+1. **Register** your SSH public key once with `ssh add-key`.
+2. **Connect** to a workspace with `ssh connect` — the CLI automatically
+   issues a short-lived certificate and invokes `ssh`.
+
+For advanced use, you can issue certificates manually with `ssh issue-cert`
+or generate an OpenSSH config block with `ssh client-config`.
 
 Certificates default to a 5-minute TTL, keeping the attack surface minimal.
 
@@ -36,57 +38,56 @@ printf '%s\n' "$tmp/spaces" "$tmp"
 rm -rf ${tmp}
 ```
 
-## Add Key
+## Registering SSH Keys
 
-`ssh add-key` registers a public key with the control plane:
+### Add a key
+
+Register your SSH public key with a friendly name:
 
 ```run:shell
 $ ${cli} ssh add-key --name my-laptop --public-key-file ${tmp}/id_ed25519.pub
 registered ssh key SHA256:fake1
 ```
 
-## List Keys
+You can also pass the key material inline with `--public-key` instead of
+`--public-key-file`.
 
-`ssh list-keys` shows all registered public keys:
+### List registered keys
 
 ```run:shell
 $ ${cli} ssh list-keys | grep my-laptop | awk '{print $2}'
 my-laptop
 ```
 
-## Remove Key
+### Remove a key
 
-`ssh remove-key` unregisters a key by fingerprint:
+Unregister a key by its fingerprint:
 
 ```run:shell
 $ ${cli} ssh remove-key --fingerprint SHA256:fake1
 removed ssh key SHA256:fake1
 ```
 
-## Issue Certificate
+## Connecting to a Workspace
 
-`ssh issue-cert` requests a short-lived certificate and writes it next to the
-private key:
+### Quick connect
 
-```run:shell
-$ ${cli} ssh issue-cert --identity-file ${tmp}/id_ed25519 | head -1
-issued ssh certificate ${tmp}/id_ed25519-cert.pub
+`ssh connect` is the easiest way to enter a Cell. It handles certificate
+issuance automatically:
+
+```sh
+spaces ssh connect --workspace ws_xxx
 ```
 
-The certificate file is created:
+Behind the scenes, the CLI:
+
+1. Reads your local private key (defaults to `~/.ssh/id_ed25519`)
+2. Sends the public key to the control plane to get a short-lived certificate
+3. Writes the certificate next to the private key
+4. Runs `ssh` with the certificate, identity file, and workspace target
 
 ```run:shell
-$ test -f ${tmp}/id_ed25519-cert.pub && echo exists
-exists
-```
-
-## Connect
-
-`ssh connect` issues a certificate and then invokes the local `ssh` binary.
-We use a fake `ssh` script to capture the arguments:
-
-```run:shell
-# Create a fake ssh binary and a second key pair for connect test
+# Create a fake ssh binary to verify the arguments
 printf '#!/bin/sh\nprintf "%%s\\n" "$@" > %s/ssh-args.txt\n' "${tmp}" > ${tmp}/fake-ssh.sh
 chmod +x ${tmp}/fake-ssh.sh
 ssh-keygen -q -t ed25519 -N '' -f ${tmp}/id_connect
@@ -97,8 +98,6 @@ ssh-keygen -q -t ed25519 -N '' -f ${tmp}/id_connect
 CRAKEN_SSH_BIN=${tmp}/fake-ssh.sh ${cli} ssh connect --workspace ws_1 --host cell.example.com --identity-file ${tmp}/id_connect --command "echo hi" >/dev/null
 ```
 
-The fake ssh was called with the expected arguments:
-
 ```run:shell
 $ grep -c 'CertificateFile' ${tmp}/ssh-args.txt
 1
@@ -106,12 +105,32 @@ $ grep 'craken-cell@cell.example.com' ${tmp}/ssh-args.txt
 craken-cell@cell.example.com
 ```
 
-## Client Config
+### OpenSSH config
 
-`ssh client-config` generates an OpenSSH config block for manual use:
+If you prefer to use `ssh` directly, generate an OpenSSH config block and
+paste it into `~/.ssh/config`:
 
 ```run:shell
 $ ${cli} ssh client-config --workspace ws_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
 Host craken-ws_1
   HostName cell.example.com
+```
+
+After adding this to your SSH config, you can connect with just
+`ssh craken-ws_1`.
+
+## Manual Certificate Issuance
+
+For scripting or debugging, you can issue a certificate without connecting:
+
+```run:shell
+$ ${cli} ssh issue-cert --identity-file ${tmp}/id_ed25519 | head -1
+issued ssh certificate ${tmp}/id_ed25519-cert.pub
+```
+
+The certificate is written next to the private key:
+
+```run:shell
+$ test -f ${tmp}/id_ed25519-cert.pub && echo exists
+exists
 ```

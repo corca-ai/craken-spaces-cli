@@ -10,9 +10,6 @@ resource limits for CPU, memory, disk, network egress, and LLM tokens.
 
 The workspace lifecycle is: **create** -> **up** (running) -> **down** (stopped) -> **delete**.
 
-Workspace admins can also issue, list, and revoke member auth keys to grant
-scoped access to other users.
-
 ```run:shell -> $cli, $tmp
 # Create wrapper and authenticate
 . .specdown/test-env
@@ -36,8 +33,8 @@ rm -rf ${tmp}
 
 ## Create
 
-`workspace create --name NAME` creates a new workspace with default resource
-limits and prints the workspace ID:
+Create a new workspace with a name. Default resource limits apply unless
+overridden with flags like `--cpu-millis`, `--memory-mib`, `--llm-tokens-limit`:
 
 ```run:shell
 $ ${cli} workspace create --name my-workspace
@@ -46,7 +43,8 @@ created workspace ws_1 (my-workspace)
 
 ## List
 
-`workspace list` shows a table of all workspaces the user can access:
+View all workspaces you have access to. The table includes resource limits,
+runtime state, and LLM token usage:
 
 ```run:shell
 $ ${cli} workspace list | awk 'NR==1{print $1}'
@@ -55,12 +53,14 @@ id
 
 ## Up and Down
 
-`workspace up` starts a workspace; `workspace down` stops it:
+Start a workspace to make its Cell available for SSH connections:
 
 ```run:shell
 $ ${cli} workspace up --workspace ws_1
 workspace ws_1 is running
 ```
+
+Stop a workspace when you're done to free resources:
 
 ```run:shell
 $ ${cli} workspace down --workspace ws_1
@@ -69,7 +69,7 @@ workspace ws_1 is stopped
 
 ## Delete
 
-`workspace delete` permanently removes a workspace:
+Permanently remove a workspace and all its data:
 
 ```run:shell
 $ ${cli} workspace delete --workspace ws_1
@@ -78,14 +78,17 @@ deleted workspace ws_1
 
 ## Member Auth Keys
 
-Workspace admins can issue scoped auth keys that let other users join a
-workspace with delegated resource limits.
+Workspace admins can invite other users by issuing scoped auth keys. Each
+key grants the invitee access to the workspace with delegated resource limits.
 
-### Issue
+### Issuing a key
+
+Issue an auth key for a new member. The key is printed once and should be
+shared with the invitee securely:
 
 ```run:shell
 # Create a workspace for member key tests
-${cli} workspace create --name key-test >/dev/null
+${cli} workspace create --name team-project >/dev/null
 ```
 
 ```run:shell
@@ -93,14 +96,20 @@ $ ${cli} workspace issue-member-auth-key --workspace ws_2 --email bob@example.co
 issued workspace member auth key 1 for bob@example.com
 ```
 
-### List
+The invitee can then log in with `spaces auth login --email bob@example.com --key <received-key>`.
+
+### Listing keys
+
+View all issued keys for a workspace, including their status:
 
 ```run:shell
 $ ${cli} workspace member-auth-keys --workspace ws_2 | grep bob@example.com | awk '{print $2}'
 bob@example.com
 ```
 
-### Revoke
+### Revoking a key
+
+Revoke a key to immediately deny the member's access:
 
 ```run:shell
 $ ${cli} workspace revoke-member-auth-key --workspace ws_2 --id 1
@@ -109,7 +118,7 @@ revoked workspace member auth key 1
 
 ## Required flags
 
-Workspace subcommands that target a specific workspace require `--workspace`:
+Most workspace commands require `--workspace` to identify the target:
 
 ```run:shell
 # Missing --workspace must fail
