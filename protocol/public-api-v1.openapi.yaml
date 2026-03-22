@@ -1,0 +1,661 @@
+openapi: 3.0.3
+info:
+  title: Craken Public Control-Plane API
+  version: v1
+  description: |
+    Narrow external HTTP API used by craken-cli for alpha user and workspace-admin
+    flows.
+servers:
+  - url: http://127.0.0.1
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/auth/login:
+    post:
+      operationId: authLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/auth/logout:
+    post:
+      operationId: authLogout
+      responses:
+        '200':
+          $ref: '#/components/responses/OkResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/whoami:
+    get:
+      operationId: whoAmI
+      responses:
+        '200':
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/workspaces:
+    get:
+      operationId: listWorkspaces
+      responses:
+        '200':
+          description: Workspace list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspacesResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      operationId: createWorkspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '200':
+          description: Created workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/workspaces/{workspaceId}/up:
+    post:
+      operationId: startWorkspace
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Started workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/workspaces/{workspaceId}/down:
+    post:
+      operationId: stopWorkspace
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Stopped workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/workspaces/{workspaceId}/delete:
+    delete:
+      operationId: deleteWorkspace
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/OkResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/workspaces/{workspaceId}/member-auth-keys:
+    get:
+      operationId: listWorkspaceMemberAuthKeys
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Workspace member auth keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberAuthKeysResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      operationId: issueWorkspaceMemberAuthKey
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueMemberAuthKeyRequest'
+      responses:
+        '200':
+          description: Issued workspace member auth key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberAuthKeyResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/workspaces/{workspaceId}/member-auth-keys/{authKeyId}:
+    delete:
+      operationId: revokeWorkspaceMemberAuthKey
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/AuthKeyId'
+      responses:
+        '200':
+          $ref: '#/components/responses/OkResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/ssh/keys:
+    get:
+      operationId: listSSHKeys
+      responses:
+        '200':
+          description: Registered SSH public keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSHKeysResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      operationId: addSSHKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddSSHKeyRequest'
+      responses:
+        '200':
+          description: Registered SSH public key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSHKeyResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/ssh/keys/{fingerprint}:
+    delete:
+      operationId: removeSSHKey
+      parameters:
+        - $ref: '#/components/parameters/Fingerprint'
+      responses:
+        '200':
+          $ref: '#/components/responses/OkResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/ssh/issue-cert:
+    post:
+      operationId: issueSSHCert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueSSHCertRequest'
+      responses:
+        '200':
+          description: Short-lived SSH certificate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueSSHCertResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-session-token
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    AuthKeyId:
+      name: authKeyId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    Fingerprint:
+      name: fingerprint
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  responses:
+    OkResponse:
+      description: Generic success
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OkResponse'
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OkResponse:
+      type: object
+      additionalProperties: false
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+    AuthLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, key]
+      properties:
+        email:
+          type: string
+          format: email
+        key:
+          type: string
+          minLength: 1
+    SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, email, session_token]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        email:
+          type: string
+          format: email
+        session_token:
+          type: string
+          minLength: 1
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+    UserResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, user]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        user:
+          $ref: '#/components/schemas/User'
+    Workspace:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - role
+        - owner_user_id
+        - created_at
+        - cpu_millis
+        - memory_mib
+        - disk_mb
+        - network_egress_mb
+        - llm_tokens_limit
+        - llm_tokens_used
+        - actor_cpu_millis
+        - actor_memory_mib
+        - actor_disk_mb
+        - actor_network_mb
+        - actor_llm_tokens
+        - byok_bytes_used
+        - runtime_driver
+        - runtime_state
+        - runtime_meta
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        owner_user_id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+        cpu_millis:
+          type: integer
+        memory_mib:
+          type: integer
+        disk_mb:
+          type: integer
+        network_egress_mb:
+          type: integer
+        llm_tokens_limit:
+          type: integer
+        llm_tokens_used:
+          type: integer
+        actor_cpu_millis:
+          type: integer
+        actor_memory_mib:
+          type: integer
+        actor_disk_mb:
+          type: integer
+        actor_network_mb:
+          type: integer
+        actor_llm_tokens:
+          type: integer
+        byok_bytes_used:
+          type: integer
+          format: int64
+        runtime_driver:
+          type: string
+        runtime_state:
+          type: string
+        runtime_meta:
+          type: string
+    WorkspacesResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, workspaces]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        workspaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+    WorkspaceResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, workspace]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+    CreateWorkspaceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - runtime_driver
+        - cpu_millis
+        - memory_mib
+        - disk_mb
+        - network_egress_mb
+        - llm_tokens_limit
+      properties:
+        name:
+          type: string
+        runtime_driver:
+          type: string
+        cpu_millis:
+          type: integer
+        memory_mib:
+          type: integer
+        disk_mb:
+          type: integer
+        network_egress_mb:
+          type: integer
+        llm_tokens_limit:
+          type: integer
+    WorkspaceMemberAuthKey:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - workspace_id
+        - workspace_name
+        - issued_by_user_id
+        - issued_by_email
+        - invitee_email
+        - issued_at
+        - expires_at
+        - redeemed_at
+        - revoked_at
+        - cpu_millis
+        - memory_mib
+        - disk_mb
+        - network_egress_mb
+        - llm_tokens_limit
+      properties:
+        id:
+          type: integer
+          format: int64
+        workspace_id:
+          type: string
+        workspace_name:
+          type: string
+        issued_by_user_id:
+          type: integer
+          format: int64
+        issued_by_email:
+          type: string
+          format: email
+        invitee_email:
+          type: string
+          format: email
+        issued_at:
+          type: string
+        expires_at:
+          type: string
+        redeemed_at:
+          type: string
+        revoked_at:
+          type: string
+        cpu_millis:
+          type: integer
+        memory_mib:
+          type: integer
+        disk_mb:
+          type: integer
+        network_egress_mb:
+          type: integer
+        llm_tokens_limit:
+          type: integer
+    MemberAuthKeysResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, auth_keys]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        auth_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMemberAuthKey'
+    MemberAuthKeyResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, auth_key, key]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        auth_key:
+          $ref: '#/components/schemas/WorkspaceMemberAuthKey'
+        key:
+          type: string
+    IssueMemberAuthKeyRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - expires_hours
+        - cpu_millis
+        - memory_mib
+        - disk_mb
+        - network_egress_mb
+        - llm_tokens_limit
+      properties:
+        email:
+          type: string
+          format: email
+        expires_hours:
+          type: integer
+        cpu_millis:
+          type: integer
+        memory_mib:
+          type: integer
+        disk_mb:
+          type: integer
+        network_egress_mb:
+          type: integer
+        llm_tokens_limit:
+          type: integer
+    SSHKey:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - user_id
+        - user_email
+        - name
+        - public_key
+        - fingerprint
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        user_email:
+          type: string
+          format: email
+        name:
+          type: string
+        public_key:
+          type: string
+        fingerprint:
+          type: string
+        created_at:
+          type: string
+    SSHKeysResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, keys]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SSHKey'
+    SSHKeyResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, key]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        key:
+          $ref: '#/components/schemas/SSHKey'
+    AddSSHKeyRequest:
+      type: object
+      additionalProperties: false
+      required: [name, public_key]
+      properties:
+        name:
+          type: string
+        public_key:
+          type: string
+    IssueSSHCertRequest:
+      type: object
+      additionalProperties: false
+      required: [public_key, principal, cert_ttl]
+      properties:
+        public_key:
+          type: string
+        principal:
+          type: string
+        cert_ttl:
+          type: string
+    IssueSSHCertResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, fingerprint, principal, expires_at, certificate]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        fingerprint:
+          type: string
+        principal:
+          type: string
+        expires_at:
+          type: string
+        certificate:
+          type: string

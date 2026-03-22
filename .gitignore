@@ -1,1 +1,22 @@
+# Build
 dist/
+*.exe
+
+# specdown artifacts
+.specdown/
+
+# Claude Code personal state
+.claude/memory/
+.claude/MEMORY.md
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/

@@ -1,0 +1,35 @@
+{
+  "entry": "specs/index.spec.md",
+  "adapters": [],
+  "setup": "sh scripts/spec-env.sh",
+  "teardown": "sh scripts/spec-teardown.sh",
+  "defaultTimeoutMsec": 120000,
+  "reporters": [
+    {
+      "builtin": "html",
+      "outFile": ".specdown/report"
+    },
+    {
+      "builtin": "json",
+      "outFile": ".specdown/report.json"
+    }
+  ],
+  "toc": [
+    "specs/index.spec.md",
+    {
+      "group": "Features",
+      "docs": [
+        "specs/auth.spec.md",
+        "specs/workspace.spec.md",
+        "specs/ssh.spec.md",
+        "specs/config-resolution.spec.md"
+      ]
+    },
+    {
+      "group": "Validation",
+      "docs": [
+        "specs/testing.spec.md"
+      ]
+    }
+  ]
+}

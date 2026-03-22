@@ -1,210 +1,206 @@
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"strings"
-	"syscall"
 )
 
 var version = "dev"
 
 func main() {
-	args := os.Args[1:]
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
 
+func run(argv []string, stdout, stderr io.Writer) int {
+	root := flag.NewFlagSet("craken", flag.ContinueOnError)
+	root.SetOutput(stderr)
+	root.Usage = func() { printUsage(root.Output()) }
+
+	baseURL := root.String("base-url", "", "Craken public control-plane base URL (default: https://agents.borca.ai)")
+	sessionFile := root.String("session-file", defaultSessionPath(), "path to the local session file")
+	if err := root.Parse(argv); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+
+	args := root.Args()
 	if len(args) == 0 {
-		printUsage()
-		os.Exit(2)
+		root.Usage()
+		return 2
+	}
+
+	cfg := cliConfig{
+		BaseURL:     normalizeBaseURL(*baseURL),
+		SessionFile: *sessionFile,
 	}
 
 	switch args[0] {
 	case "version":
-		fmt.Printf("craken %s\n", version)
-	case "help", "--help", "-h":
-		printUsage()
+		fmt.Fprintf(stdout, "craken %s\n", version)
+		return 0
+	case "help":
+		printUsage(stdout)
+		return 0
+	case "auth":
+		return cmdAuth(cfg, args[1:], stdout, stderr)
+	case "whoami":
+		return cmdWhoAmI(cfg, stdout, stderr)
+	case "workspace":
+		return cmdWorkspace(cfg, args[1:], stdout, stderr)
+	case "ssh":
+		return cmdSSH(cfg, args[1:], stdout, stderr)
 	default:
-		remoteExec(args)
+		fmt.Fprintf(stderr, "error: unknown command %q\n\n", args[0])
+		printUsage(stderr)
+		return 2
 	}
 }
 
-// remoteExec proxies a command to the remote host via SSH.
-// It replaces the current process with ssh(1).
-func remoteExec(args []string) {
-	host := os.Getenv("CRAKEN_HOST")
-	if host == "" {
-		fmt.Fprintln(os.Stderr, "error: CRAKEN_HOST environment variable is required")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "  export CRAKEN_HOST=<hostname>")
-		os.Exit(1)
-	}
-
-	args = rewriteArgs(args, host)
-
-	interactive := isInteractive(args)
-
-	var sshArgs []string
-	if interactive {
-		sshArgs = append(sshArgs, "-tt")
-	}
-
-	if port := os.Getenv("CRAKEN_SSH_PORT"); port != "" {
-		sshArgs = append(sshArgs, "-p", port)
-	}
-
-	target := host
-	if user := os.Getenv("CRAKEN_SSH_USER"); user != "" {
-		target = user + "@" + host
-	}
-	sshArgs = append(sshArgs, target, "--")
-
-	remoteBin := "craken"
-	if bin := os.Getenv("CRAKEN_REMOTE_BIN"); bin != "" {
-		remoteBin = bin
-	}
-	sshArgs = append(sshArgs, remoteBin)
-	sshArgs = append(sshArgs, args...)
-
-	sshPath, err := exec.LookPath("ssh")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error: ssh not found in PATH")
-		os.Exit(1)
-	}
-
-	execArgs := append([]string{"ssh"}, sshArgs...)
-	if err := syscall.Exec(sshPath, execArgs, os.Environ()); err != nil {
-		fmt.Fprintf(os.Stderr, "error: exec ssh: %v\n", err)
-		os.Exit(1)
-	}
-}
-
-// rewriteArgs adjusts arguments before remote execution:
-//   - ssh connect / ssh client-config: injects --host from CRAKEN_HOST if absent
-//   - ssh add-key --public-key-file: reads local file and converts to --public-key
-func rewriteArgs(args []string, host string) []string {
-	if len(args) < 2 || args[0] != "ssh" {
-		return args
-	}
-
-	sub := args[1]
-
-	if (sub == "connect" || sub == "client-config") && !hasFlag(args, "--host") {
-		args = append(args, "--host", host)
-	}
-
-	if sub == "add-key" {
-		args = rewritePublicKeyFile(args)
-	}
-
-	return args
-}
-
-// rewritePublicKeyFile replaces --public-key-file with --public-key by reading
-// the local file. This is necessary because the file path is local and won't
-// exist on the remote host.
-func rewritePublicKeyFile(args []string) []string {
-	var filePath string
-	fileIdx := -1
-
-	for i, a := range args {
-		if a == "--public-key-file" && i+1 < len(args) {
-			filePath = args[i+1]
-			fileIdx = i
-			break
+func cmdAuth(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
+	if len(argv) == 0 || isHelpWord(argv[0]) {
+		printAuthUsage(stdout)
+		if len(argv) == 0 {
+			return 2
 		}
-		if strings.HasPrefix(a, "--public-key-file=") {
-			filePath = strings.TrimPrefix(a, "--public-key-file=")
-			fileIdx = i
-			break
-		}
+		return 0
 	}
 
-	if fileIdx < 0 {
-		return args
-	}
-
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: reading public key file: %v\n", err)
-		os.Exit(1)
-	}
-
-	pubKey := strings.TrimSpace(string(data))
-
-	var out []string
-	for i, a := range args {
-		if i == fileIdx {
-			out = append(out, "--public-key", pubKey)
-			if !strings.Contains(a, "=") {
-				i++ // skip the next arg (the file path value)
+	switch argv[0] {
+	case "login":
+		fs := flag.NewFlagSet("auth login", flag.ContinueOnError)
+		fs.SetOutput(stderr)
+		email := fs.String("email", "", "user email address")
+		key := fs.String("key", "", "one-time auth key")
+		if err := fs.Parse(argv[1:]); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return 0
 			}
-			continue
+			return 2
 		}
-		// skip the value of --public-key-file if it was a separate arg
-		if fileIdx >= 0 && i == fileIdx+1 && !strings.Contains(args[fileIdx], "=") {
-			continue
+		if strings.TrimSpace(*email) == "" || strings.TrimSpace(*key) == "" {
+			fmt.Fprintln(stderr, "error: --email and --key are required")
+			return 2
 		}
-		out = append(out, a)
-	}
+		baseURL, err := cfg.requireBaseURL()
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 2
+		}
+		client := apiClient{BaseURL: baseURL}
+		var response struct {
+			OK           bool   `json:"ok"`
+			Error        string `json:"error"`
+			Email        string `json:"email"`
+			SessionToken string `json:"session_token"`
+		}
+		if err := client.doJSON("POST", "/api/v1/auth/login", map[string]any{
+			"email": *email,
+			"key":   *key,
+		}, &response); err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		if err := saveSession(cfg.SessionFile, localSession{
+			BaseURL:      baseURL,
+			Email:        response.Email,
+			SessionToken: response.SessionToken,
+		}); err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "authenticated as %s\n", response.Email)
+		fmt.Fprintf(stdout, "session saved to %s\n", cfg.SessionFile)
+		return 0
 
-	return out
+	case "logout":
+		session, _ := loadSession(cfg.SessionFile)
+		if session != nil && session.SessionToken != "" && session.BaseURL != "" {
+			client := apiClient{BaseURL: session.BaseURL, SessionToken: session.SessionToken}
+			_ = client.doJSON("POST", "/api/v1/auth/logout", nil, nil)
+		}
+		if err := clearSession(cfg.SessionFile); err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "logged out; session removed from %s\n", cfg.SessionFile)
+		return 0
+	default:
+		fmt.Fprintf(stderr, "error: unknown auth subcommand %q\n\n", argv[0])
+		printAuthUsage(stderr)
+		return 2
+	}
 }
 
-func isInteractive(args []string) bool {
-	if len(args) < 2 {
-		return false
+func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
+	client, _, err := cfg.requireAuthenticatedClient()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
 	}
-	return args[0] == "ssh" && args[1] == "connect"
+	var response struct {
+		OK   bool `json:"ok"`
+		User struct {
+			Email string `json:"email"`
+		} `json:"user"`
+		Error string `json:"error"`
+	}
+	if err := client.doJSON("GET", "/api/v1/whoami", nil, &response); err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, response.User.Email)
+	return 0
 }
 
-func hasFlag(args []string, flag string) bool {
-	for _, a := range args {
-		if a == flag || strings.HasPrefix(a, flag+"=") {
-			return true
-		}
-	}
-	return false
-}
-
-func printUsage() {
-	fmt.Print(`Usage: craken <command> [options]
-
-Environment:
-  CRAKEN_HOST        Remote host (required for all commands except version)
-  CRAKEN_SSH_USER    SSH user for host connection (default: current user)
-  CRAKEN_SSH_PORT    SSH port for host connection (default: 22)
+func printUsage(w io.Writer) {
+	fmt.Fprint(w, `Usage: craken [--base-url URL] [--session-file PATH] <command> [options]
 
 Commands:
-  version              Print the craken CLI version
-  auth login           Authenticate with the control plane
-  auth logout          Remove session
-  whoami               Show authenticated user
-  request-access       Request alpha access
+  version
+  auth login
+  auth logout
+  whoami
+  workspace create
+  workspace list
+  workspace up
+  workspace down
+  workspace delete
+  workspace issue-member-auth-key
+  workspace member-auth-keys
+  workspace revoke-member-auth-key
+  ssh add-key
+  ssh list-keys
+  ssh remove-key
+  ssh issue-cert
+  ssh connect
+  ssh client-config
 
-  workspace create     Create a workspace
-  workspace list       List accessible workspaces
-  workspace up         Start workspace runtime
-  workspace down       Stop workspace runtime
-  workspace delete     Delete a workspace
-  workspace add-member Add a member to a workspace
-
-  agent create         Create an agent
-  agent list           List agents in a workspace
-  agent start          Start an agent
-  agent stop           Stop an agent
-  agent delete         Delete an agent
-
-  ssh add-key          Register an SSH public key
-  ssh list-keys        List registered SSH keys
-  ssh remove-key       Remove an SSH public key
-  ssh connect          SSH into a workspace Cell
-  ssh client-config    Print OpenSSH config for a workspace
-
-  help                 Show this help message
-
-All commands except version are executed on the remote host via SSH.
-Pass --help to any subcommand for detailed usage.
-
-https://github.com/corca-ai/craken-cli
+Environment:
+  CRAKEN_BASE_URL      Override the default public control-plane base URL (https://agents.borca.ai)
+  CRAKEN_SSH_HOST      Override SSH host for Cell entry
+  CRAKEN_SSH_PORT      Override SSH port for Cell entry (default: 22)
+  CRAKEN_SSH_LOGIN_USER Override SSH login user (default: craken-cell)
+  CRAKEN_SSH_BIN       Override ssh binary path for testing
 `)
+}
+
+func printAuthUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  craken auth login --email EMAIL --key AUTH_KEY")
+	fmt.Fprintln(w, "  craken auth logout")
+}
+
+func isHelpWord(value string) bool {
+	switch strings.TrimSpace(value) {
+	case "-h", "--help", "help":
+		return true
+	default:
+		return false
+	}
 }
