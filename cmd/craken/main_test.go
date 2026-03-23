@@ -349,6 +349,39 @@ func TestSSHClientConfigAllowsExplicitBaseURLOverrideForHostResolution(t *testin
 	}
 }
 
+func TestSSHClientConfigRejectsUnsafeUserFromEnvironment(t *testing.T) {
+	t.Setenv("SPACES_SSH_LOGIN_USER", "spaces-room\nProxyCommand whoami")
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{
+		BaseURL:      "https://spaces.borca.ai",
+		Email:        "alice@example.com",
+		SessionToken: "sess_test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	identityFile := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(identityFile, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--session-file", sessionFile,
+		"ssh", "client-config",
+		"--room", "sp_123",
+		"--identity-file", identityFile,
+		"--host", "cell.example.com",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected ssh client-config to reject unsafe user, stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "whitespace or control characters") {
+		t.Fatalf("stderr missing validation error: %s", stderr.String())
+	}
+}
+
 func TestAuthLoginRequiresEmailAndKey(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	tmpDir := t.TempDir()

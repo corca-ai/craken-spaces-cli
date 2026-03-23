@@ -275,7 +275,7 @@ func TestBuildSSHConnectArgsUsesStrictHostKeyChecking(t *testing.T) {
 }
 
 func TestRenderSSHClientConfigUsesStrictHostKeyChecking(t *testing.T) {
-	config := renderSSHClientConfig(sshClientConfig{
+	config, err := renderSSHClientConfig(sshClientConfig{
 		Alias:           "spaces-sp_123",
 		Host:            "cell.example.com",
 		User:            "spaces-room",
@@ -285,12 +285,31 @@ func TestRenderSSHClientConfigUsesStrictHostKeyChecking(t *testing.T) {
 		RoomID:          "sp_123",
 		KnownHostsFile:  "/tmp/known_hosts",
 	})
+	if err != nil {
+		t.Fatalf("renderSSHClientConfig returned error: %v", err)
+	}
 
 	if !strings.Contains(config, "  StrictHostKeyChecking yes\n") {
 		t.Fatalf("config missing strict host key checking:\n%s", config)
 	}
 	if !strings.Contains(config, "  UserKnownHostsFile /tmp/known_hosts\n") {
 		t.Fatalf("config missing known hosts override:\n%s", config)
+	}
+}
+
+func TestRenderSSHClientConfigRejectsWhitespaceAndControlCharacters(t *testing.T) {
+	_, err := renderSSHClientConfig(sshClientConfig{
+		Alias:           "spaces-sp_123",
+		Host:            "cell.example.com",
+		User:            "spaces-room\nProxyCommand whoami",
+		Port:            22,
+		IdentityFile:    "/tmp/id_ed25519",
+		CertificateFile: "/tmp/id_ed25519-cert.pub",
+		RoomID:          "sp_123",
+		KnownHostsFile:  "/tmp/known_hosts",
+	})
+	if err == nil || !strings.Contains(err.Error(), "whitespace or control characters") {
+		t.Fatalf("renderSSHClientConfig error = %v, want whitespace/control validation", err)
 	}
 }
 

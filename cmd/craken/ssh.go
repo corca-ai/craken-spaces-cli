@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type sshKeyRecord struct {
@@ -165,17 +166,22 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 				return 1
 			}
 		}
-		fmt.Fprint(stdout, renderSSHClientConfig(sshClientConfig{
-			Alias:           *alias,
-			Host:            resolvedHost,
-			User:            *user,
-			Port:            *port,
-			IdentityFile:    *identityFile,
-			CertificateFile: sshCertificateFileForIdentity(*identityFile),
-			RoomID:          *roomID,
-			KnownHostsFile:  resolveKnownHostsFile(*knownHostsFile),
-		}))
-		return 0
+			config, err := renderSSHClientConfig(sshClientConfig{
+				Alias:           *alias,
+				Host:            resolvedHost,
+				User:            *user,
+				Port:            *port,
+				IdentityFile:    *identityFile,
+				CertificateFile: sshCertificateFileForIdentity(*identityFile),
+				RoomID:          *roomID,
+				KnownHostsFile:  resolveKnownHostsFile(*knownHostsFile),
+			})
+			if err != nil {
+				fmt.Fprintf(stderr, "error: %v\n", err)
+				return 1
+			}
+			fmt.Fprint(stdout, config)
+			return 0
 
 	case "connect":
 		fs := flag.NewFlagSet("ssh connect", flag.ContinueOnError)
@@ -370,7 +376,10 @@ func buildSSHConnectArgs(options sshConnectOptions) []string {
 	return args
 }
 
-func renderSSHClientConfig(config sshClientConfig) string {
+func renderSSHClientConfig(config sshClientConfig) (string, error) {
+	if err := validateSSHClientConfig(config); err != nil {
+		return "", err
+	}
 	var output strings.Builder
 	fmt.Fprintf(&output, "Host %s\n", config.Alias)
 	fmt.Fprintf(&output, "  HostName %s\n", config.Host)
@@ -387,7 +396,43 @@ func renderSSHClientConfig(config sshClientConfig) string {
 	fmt.Fprintf(&output, "  RemoteCommand %s\n", config.RoomID)
 	fmt.Fprintf(&output, "  ServerAliveInterval 30\n")
 	fmt.Fprintf(&output, "  ServerAliveCountMax 3\n")
-	return output.String()
+	return output.String(), nil
+}
+
+func validateSSHClientConfig(config sshClientConfig) error {
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{name: "host alias", value: config.Alias},
+		{name: "host name", value: config.Host},
+		{name: "user", value: config.User},
+		{name: "identity file", value: config.IdentityFile},
+		{name: "certificate file", value: config.CertificateFile},
+		{name: "room ID", value: config.RoomID},
+	} {
+		if err := validateSSHConfigValue(field.name, field.value); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(config.KnownHostsFile) != "" {
+		if err := validateSSHConfigValue("known hosts file", config.KnownHostsFile); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSSHConfigValue(label, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%s is required", label)
+	}
+	for _, r := range value {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return fmt.Errorf("%s must not contain whitespace or control characters", label)
+		}
+	}
+	return nil
 }
 
 func resolvePublicKeyInput(inlineValue, filePath string) (string, error) {

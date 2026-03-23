@@ -113,3 +113,10 @@ entry to the generated SSH config:
 $ SPACES_SSH_KNOWN_HOSTS_FILE=/tmp/spaces-known-hosts SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep UserKnownHostsFile
   UserKnownHostsFile /tmp/spaces-known-hosts
 ```
+
+Unsafe SSH config values are rejected instead of being emitted into the config:
+
+```run:shell
+$ ! SPACES_SSH_LOGIN_USER="$(printf 'spaces-room\nProxyCommand whoami')" SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com 2>&1
+error: user must not contain whitespace or control characters
+```

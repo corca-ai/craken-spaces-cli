@@ -92,7 +92,9 @@ Behind the scenes, the CLI:
 ### OpenSSH config
 
 If you prefer to use `ssh` directly, generate an OpenSSH config block and
-paste it into `~/.ssh/config`:
+paste it into `~/.ssh/config`. The CLI rejects `client-config` inputs that
+contain whitespace or control characters, because those values would change the
+meaning of the generated `ssh_config` directives:
 
 ```run:shell
 $ ${cli} ssh client-config --room sp_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | grep -E 'HostName|StrictHostKeyChecking'
