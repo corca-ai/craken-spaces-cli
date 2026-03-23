@@ -286,7 +286,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	}
 }
 
-func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
+func TestSSHClientConfigUsesSavedSessionBaseURLForHostResolution(t *testing.T) {
 	t.Setenv("SPACES_BASE_URL", "https://staging.example.test")
 
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
@@ -313,8 +313,39 @@ func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("ssh client-config code=%d stderr=%s", code, stderr.String())
 	}
+	if !strings.Contains(stdout.String(), "HostName spaces.borca.ai") {
+		t.Fatalf("stdout missing session-resolved host:\n%s", stdout.String())
+	}
+}
+
+func TestSSHClientConfigAllowsExplicitBaseURLOverrideForHostResolution(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{
+		BaseURL:      "https://spaces.borca.ai",
+		Email:        "alice@example.com",
+		SessionToken: "sess_test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	identityFile := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(identityFile, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--base-url", "https://staging.example.test",
+		"--session-file", sessionFile,
+		"ssh", "client-config",
+		"--room", "sp_123",
+		"--identity-file", identityFile,
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("ssh client-config code=%d stderr=%s", code, stderr.String())
+	}
 	if !strings.Contains(stdout.String(), "HostName staging.example.test") {
-		t.Fatalf("stdout missing env-resolved host:\n%s", stdout.String())
+		t.Fatalf("stdout missing explicit-override host:\n%s", stdout.String())
 	}
 }
 

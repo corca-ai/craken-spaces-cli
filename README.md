@@ -23,13 +23,16 @@ The CLI defaults to:
 https://spaces.borca.ai
 ```
 
-Use another deployment with:
+Use another deployment with an HTTPS control-plane URL:
 
 ```sh
 export SPACES_BASE_URL=https://your-deployment.example.com
 spaces <command> [options]
 spaces help
 ```
+
+For local development only, loopback `http://` URLs such as
+`http://127.0.0.1:8080` are also accepted.
 
 ## Development
 

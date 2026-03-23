@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -30,6 +31,18 @@ func TestResolveBaseURLPrefersEnvironmentOverSession(t *testing.T) {
 	}
 }
 
+func TestResolveAuthenticatedBaseURLPrefersSavedSessionOverEnvironment(t *testing.T) {
+	t.Setenv("SPACES_BASE_URL", "https://staging.example.test/")
+
+	cfg := cliConfig{}
+	session := &localSession{BaseURL: "https://spaces.borca.ai"}
+
+	got := cfg.resolveAuthenticatedBaseURL(session)
+	if got != "https://spaces.borca.ai" {
+		t.Fatalf("resolveAuthenticatedBaseURL = %q, want saved session origin", got)
+	}
+}
+
 func TestDefaultSessionPathPrefersEnvVar(t *testing.T) {
 	t.Setenv("SPACES_SESSION_FILE", "/tmp/custom-session.json")
 
@@ -47,6 +60,48 @@ func TestResolveBaseURLPrefersExplicitFlagOverEnvironment(t *testing.T) {
 	got := cfg.resolveBaseURL(nil)
 	if got != "https://spaces.borca.ai" {
 		t.Fatalf("resolveBaseURL = %q, want explicit flag override", got)
+	}
+}
+
+func TestResolveAuthenticatedBaseURLPrefersExplicitFlagOverSession(t *testing.T) {
+	cfg := cliConfig{BaseURL: "https://staging.example.test"}
+
+	got := cfg.resolveAuthenticatedBaseURL(&localSession{BaseURL: "https://spaces.borca.ai"})
+	if got != "https://staging.example.test" {
+		t.Fatalf("resolveAuthenticatedBaseURL = %q, want explicit flag override", got)
+	}
+}
+
+func TestValidateBaseURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr string
+	}{
+		{name: "https deployment", input: "https://spaces.borca.ai", want: "https://spaces.borca.ai"},
+		{name: "loopback http", input: "http://127.0.0.1:8080", want: "http://127.0.0.1:8080"},
+		{name: "localhost http", input: "http://localhost:9999", want: "http://localhost:9999"},
+		{name: "remote http rejected", input: "http://example.com", wantErr: "https"},
+		{name: "missing scheme rejected", input: "spaces.borca.ai", wantErr: "scheme and host"},
+		{name: "query rejected", input: "https://spaces.borca.ai?x=1", wantErr: "query or fragment"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := validateBaseURL(tc.input)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("validateBaseURL(%q) error = %v, want substring %q", tc.input, err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateBaseURL(%q) unexpected error: %v", tc.input, err)
+			}
+			if got != tc.want {
+				t.Fatalf("validateBaseURL(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -139,6 +194,23 @@ func TestRequireAuthenticatedClientNoSession(t *testing.T) {
 	_, _, err := cfg.requireAuthenticatedClient()
 	if err == nil {
 		t.Fatal("expected error when no session exists")
+	}
+}
+
+func TestRequireAuthenticatedClientRejectsRemoteHTTPBaseURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(path, localSession{
+		BaseURL:      "http://example.com",
+		Email:        "a@b.com",
+		SessionToken: "tok",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := cliConfig{SessionFile: path}
+	_, _, err := cfg.requireAuthenticatedClient()
+	if err == nil || !strings.Contains(err.Error(), "https") {
+		t.Fatalf("requireAuthenticatedClient error = %v, want https validation error", err)
 	}
 }
 

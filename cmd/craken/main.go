@@ -24,7 +24,7 @@ func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int 
 	root.SetOutput(stderr)
 	root.Usage = func() { printUsage(root.Output()) }
 
-	baseURL := root.String("base-url", "", "Spaces public control-plane base URL (default: https://spaces.borca.ai)")
+	baseURL := root.String("base-url", "", "Spaces public control-plane base URL (default: https://spaces.borca.ai; http only for localhost/loopback)")
 	sessionFile := root.String("session-file", defaultSessionPath(), "path to the local session file")
 	if err := root.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -217,7 +217,7 @@ Commands:
   help                           Show this help
 
 	Environment:
-	  SPACES_BASE_URL       Override default control-plane URL (https://spaces.borca.ai)
+	  SPACES_BASE_URL       Override default control-plane URL (default: https://spaces.borca.ai; http only for localhost/loopback)
 	  SPACES_SESSION_FILE   Override local session file path
 	  SPACES_SSH_HOST       Override SSH host for Room entry
 	  SPACES_SSH_PORT       Override SSH port (default: 22)

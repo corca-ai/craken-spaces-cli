@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,12 +102,64 @@ func (cfg cliConfig) resolveBaseURL(session *localSession) string {
 	return defaultPublicBaseURL
 }
 
+func (cfg cliConfig) resolveAuthenticatedBaseURL(session *localSession) string {
+	if cfg.BaseURL != "" {
+		return cfg.BaseURL
+	}
+	if session != nil && session.BaseURL != "" {
+		return session.BaseURL
+	}
+	if envURL := configuredBaseURLOverride(); envURL != "" {
+		return envURL
+	}
+	return defaultPublicBaseURL
+}
+
+func validateBaseURL(value string) (string, error) {
+	value = normalizeBaseURL(value)
+	if value == "" {
+		return "", errors.New("base URL is required")
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return "", fmt.Errorf("invalid base URL: %w", err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", errors.New("base URL must include a scheme and host")
+	}
+	if parsed.User != nil {
+		return "", errors.New("base URL must not include user info")
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errors.New("base URL must not include a query or fragment")
+	}
+	switch parsed.Scheme {
+	case "https":
+		return normalizeBaseURL(parsed.String()), nil
+	case "http":
+		if isLoopbackHost(parsed.Hostname()) {
+			return normalizeBaseURL(parsed.String()), nil
+		}
+		return "", errors.New("base URL must use https unless it targets localhost or a loopback address")
+	default:
+		return "", errors.New("base URL must use https unless it targets localhost or a loopback address")
+	}
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func (cfg cliConfig) requireBaseURL() (string, error) {
 	session, err := loadSession(cfg.SessionFile)
 	if err != nil {
 		return "", err
 	}
-	return cfg.resolveBaseURL(session), nil
+	return validateBaseURL(cfg.resolveBaseURL(session))
 }
 
 func (cfg cliConfig) requireAuthenticatedClient() (apiClient, *localSession, error) { //nolint:unparam // session used by future commands
@@ -115,6 +170,9 @@ func (cfg cliConfig) requireAuthenticatedClient() (apiClient, *localSession, err
 	if session == nil || session.SessionToken == "" {
 		return apiClient{}, nil, errors.New("not authenticated; run 'spaces auth login'")
 	}
-	baseURL := cfg.resolveBaseURL(session)
+	baseURL, err := validateBaseURL(cfg.resolveAuthenticatedBaseURL(session))
+	if err != nil {
+		return apiClient{}, nil, err
+	}
 	return apiClient{BaseURL: baseURL, SessionToken: session.SessionToken}, session, nil
 }

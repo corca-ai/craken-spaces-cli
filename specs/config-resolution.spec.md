@@ -12,6 +12,9 @@ priority order:
 3. **Saved session file** (from the last login)
 4. **Default** `https://spaces.borca.ai` (lowest priority)
 
+All resolved control-plane URLs must use `https://`, except local development
+endpoints on `localhost` or a loopback IP, which may use `http://`.
+
 The session file path is resolved similarly:
 
 1. **`--session-file` flag** (highest)
@@ -51,14 +54,25 @@ $ SPACES_BASE_URL=http://wrong:9999 SPACES_SESSION_FILE=${tmp}/session.json ${bi
 authenticated as bob@example.com
 ```
 
-## Environment overrides session
+## Authenticated commands keep the saved origin
 
-When `SPACES_BASE_URL` is set, it takes precedence over the base URL saved in
-the session file. Here we point the env var to a non-production URL and confirm
-the generated SSH config picks it up as the hostname:
+When a session already exists, authenticated commands use the base URL saved in
+that session unless you pass `--base-url` explicitly. Here we set
+`SPACES_BASE_URL` to a different host and confirm the generated SSH config still
+uses the original session host:
 
 ```run:shell
 $ SPACES_BASE_URL=https://staging.example.test SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test | grep HostName
+  HostName 127.0.0.1
+```
+
+## Explicit flag overrides the saved session
+
+Passing `--base-url` remains an explicit opt-in override, even when a session is
+already saved:
+
+```run:shell
+$ SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url https://staging.example.test ssh client-config --room sp_1 --identity-file ${tmp}/id_test | grep HostName
   HostName staging.example.test
 ```
 
