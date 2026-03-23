@@ -43,7 +43,7 @@ Craken Spaces is currently invite-only.
 ## What is this CLI?
 
 `spaces` is the command-line client for Craken Spaces. It authenticates
-against the control-plane API, manages Rooms and SSH keys, and uses
+against the control-plane API, manages Spaces and SSH keys, and uses
 short-lived certificates for secure Room entry.
 
 ## Install
@@ -61,7 +61,7 @@ sh install.sh
 
 ## Quick Start for Admins
 
-Admins create Spaces and Rooms, invite members, and control resource
+Admins create Spaces, invite members, and control resource
 budgets. To get your admin auth key,
 [join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) and you will
 receive one when your access is approved.
@@ -72,23 +72,24 @@ printf '%s\n' YOUR_AUTH_KEY > ~/spaces.authkey
 chmod 600 ~/spaces.authkey
 spaces auth login --email you@example.com --key-file ~/spaces.authkey
 
-# 2. Create a Room
-spaces room create --name my-project
-# → created room sp_xxx (my-project)
+# 2. Create a Space
+spaces space create --name my-project
+# → created space sp_xxx (my-project)
 
 # 3. Register your SSH key and connect
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
-spaces ssh connect --room sp_xxx
+spaces ssh connect --space sp_xxx
 
 # 4. Invite a team member with scoped resource limits
-spaces room issue-member-auth-key --room sp_xxx --email teammate@example.com --auth-key-file ./teammate.authkey
+spaces space issue-member-auth-key --space sp_xxx --email teammate@example.com --auth-key-file ./teammate.authkey
 # → share the auth key file contents with your teammate securely, then delete the file
 ```
 
 ## Quick Start for Members
 
 Members receive an auth key from a Space admin. That key grants access
-to a Room with delegated resource limits.
+to a Space with delegated resource limits, and SSH lands them in their
+Room inside that Space.
 
 ```sh
 # 1. Log in with the auth key you received
@@ -97,17 +98,17 @@ spaces auth login --email you@example.com --key-file /path/to/received-auth.key
 # 2. Register your SSH key (one-time setup)
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
 
-# 3. Find your Room ID
-spaces room list
+# 3. Find your Space ID
+spaces space list
 
-# 4. Connect to your Room
-spaces ssh connect --room sp_xxx
+# 4. Connect to your Space
+spaces ssh connect --space sp_xxx
 ```
 
 ## Feature Specifications
 
 - [Authentication](auth.spec.md) -- login, logout, whoami
-- [Room Lifecycle](room.spec.md) -- admin room management, member invitations, member onboarding
+- [Space Lifecycle](space.spec.md) -- admin space management, member invitations, member onboarding
 - [SSH Keys and Certificates](ssh.spec.md) -- add-key, list-keys, remove-key, issue-cert, connect, client-config
 
 ## Reference

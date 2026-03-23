@@ -282,7 +282,7 @@ func TestRenderSSHClientConfigUsesStrictHostKeyChecking(t *testing.T) {
 		Port:            22,
 		IdentityFile:    "/tmp/id_ed25519",
 		CertificateFile: "/tmp/id_ed25519-cert.pub",
-		RoomID:          "sp_123",
+		SpaceID:         "sp_123",
 		KnownHostsFile:  "/tmp/known_hosts",
 	})
 	if err != nil {
@@ -305,7 +305,7 @@ func TestRenderSSHClientConfigRejectsWhitespaceAndControlCharacters(t *testing.T
 		Port:            22,
 		IdentityFile:    "/tmp/id_ed25519",
 		CertificateFile: "/tmp/id_ed25519-cert.pub",
-		RoomID:          "sp_123",
+		SpaceID:         "sp_123",
 		KnownHostsFile:  "/tmp/known_hosts",
 	})
 	if err == nil || !strings.Contains(err.Error(), "whitespace or control characters") {
@@ -313,16 +313,16 @@ func TestRenderSSHClientConfigRejectsWhitespaceAndControlCharacters(t *testing.T
 	}
 }
 
-func TestValidateSSHRoomID(t *testing.T) {
-	if _, err := validateSSHRoomID("sp_123"); err != nil {
-		t.Fatalf("validateSSHRoomID rejected safe value: %v", err)
+func TestValidateSSHSpaceID(t *testing.T) {
+	if _, err := validateSSHSpaceID("sp_123"); err != nil {
+		t.Fatalf("validateSSHSpaceID rejected safe value: %v", err)
 	}
-	if _, err := validateSSHRoomID("sp_123;touch"); err == nil {
-		t.Fatal("expected validateSSHRoomID to reject shell metacharacters")
+	if _, err := validateSSHSpaceID("sp_123;touch"); err == nil {
+		t.Fatal("expected validateSSHSpaceID to reject shell metacharacters")
 	}
 }
 
-func TestRenderSSHClientConfigRejectsUnsafeRoomID(t *testing.T) {
+func TestRenderSSHClientConfigRejectsUnsafeSpaceID(t *testing.T) {
 	_, err := renderSSHClientConfig(sshClientConfig{
 		Alias:           "spaces-sp_123",
 		Host:            "cell.example.com",
@@ -330,11 +330,11 @@ func TestRenderSSHClientConfigRejectsUnsafeRoomID(t *testing.T) {
 		Port:            22,
 		IdentityFile:    "/tmp/id_ed25519",
 		CertificateFile: "/tmp/id_ed25519-cert.pub",
-		RoomID:          "sp_123;touch",
+		SpaceID:         "sp_123;touch",
 		KnownHostsFile:  "/tmp/known_hosts",
 	})
-	if err == nil || !strings.Contains(err.Error(), "room ID must contain only") {
-		t.Fatalf("renderSSHClientConfig error = %v, want room ID validation", err)
+	if err == nil || !strings.Contains(err.Error(), "space ID must contain only") {
+		t.Fatalf("renderSSHClientConfig error = %v, want space ID validation", err)
 	}
 }
 

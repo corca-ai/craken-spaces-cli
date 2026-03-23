@@ -64,8 +64,8 @@ func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int 
 		return cmdAuth(cfg, args[1:], stdin, stdout, stderr)
 	case "whoami":
 		return cmdWhoAmI(cfg, stdout, stderr)
-	case "room":
-		return cmdRoom(cfg, args[1:], stdout, stderr)
+	case "space":
+		return cmdSpace(cfg, args[1:], stdout, stderr)
 	case "ssh":
 		return cmdSSH(cfg, args[1:], stdin, stdout, stderr)
 	default:
@@ -214,19 +214,19 @@ Commands:
   auth login                     Log in with email and auth key
   auth logout                    End session and remove local credentials
   whoami                         Show the currently authenticated user
-  room create                    Create a new Room
-  room list                      List Rooms you have access to
-  room up                        Start a Room
-  room down                      Stop a Room
-  room delete                    Permanently delete a Room
-  room issue-member-auth-key     Invite a member with a scoped auth key
-  room member-auth-keys          List issued member auth keys
-  room revoke-member-auth-key    Revoke a member auth key
+  space create                   Create a new Space
+  space list                     List Spaces you have access to
+  space up                       Start a Space
+  space down                     Stop a Space
+  space delete                   Permanently delete a Space
+  space issue-member-auth-key    Invite a member with a scoped auth key
+  space member-auth-keys         List issued member auth keys
+  space revoke-member-auth-key   Revoke a member auth key
   ssh add-key                    Register an SSH public key
   ssh list-keys                  List registered SSH keys
   ssh remove-key                 Unregister an SSH key
   ssh issue-cert                 Issue a short-lived SSH certificate
-  ssh connect                    Connect to a Room via SSH
+  ssh connect                    Connect to a Space via SSH
   ssh client-config              Generate an OpenSSH config block
   version                        Print version
   help                           Show this help
@@ -235,7 +235,7 @@ Commands:
 	  SPACES_BASE_URL       Override default control-plane URL (default: https://spaces.borca.ai; http only for localhost/loopback)
 	  SPACES_SESSION_FILE   Override local session file path
 	  SPACES_CONFIG_DIR     Override the config directory used for the default session path
-	  SPACES_SSH_HOST       Override SSH host for Room entry
+	  SPACES_SSH_HOST       Override SSH host for Space entry
 	  SPACES_SSH_PORT       Override SSH port (default: 22)
 	  SPACES_SSH_LOGIN_USER Override SSH login user (default: spaces-room)
 	  SPACES_SSH_KNOWN_HOSTS_FILE Override known_hosts file used for SSH host verification

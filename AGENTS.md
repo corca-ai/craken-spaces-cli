@@ -33,7 +33,7 @@ entry.
 
 Local-state client:
 
-- `auth`, `whoami`, `room`, and `ssh key/cert` commands call the public
+- `auth`, `whoami`, `space`, and `ssh key/cert` commands call the public
   control-plane HTTP API
 - session state lives in a local JSON file
 - `ssh connect` first fetches a short-lived SSH cert from the control plane,
@@ -45,8 +45,8 @@ Local-state client:
 |---|---|---|
 | `SPACES_BASE_URL` | no | Override the default public control-plane base URL (`https://spaces.borca.ai`) |
 | `SPACES_SESSION_FILE` | no | Override local session file path |
-| `SPACES_SSH_HOST` | no | Override Room-entry SSH host |
-| `SPACES_SSH_PORT` | no | Override Room-entry SSH port (default: `22`) |
+| `SPACES_SSH_HOST` | no | Override SSH entry host |
+| `SPACES_SSH_PORT` | no | Override SSH entry port (default: `22`) |
 | `SPACES_SSH_LOGIN_USER` | no | Room-entry SSH login user (default: `spaces-room`) |
 | `SPACES_SSH_KNOWN_HOSTS_FILE` | no | Override known_hosts file used for strict SSH host verification |
 | `SPACES_SSH_BIN` | no | Override local `ssh` binary path |

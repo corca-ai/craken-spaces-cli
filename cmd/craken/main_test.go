@@ -98,7 +98,7 @@ func TestAuthLoginUsesEnvironmentBaseURL(t *testing.T) {
 	}
 }
 
-func TestRoomIssueMemberAuthKey(t *testing.T) {
+func TestSpaceIssueMemberAuthKey(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
 		"issueSpaceMemberAuthKey": {
 			Body: map[string]any{
@@ -147,13 +147,13 @@ func TestRoomIssueMemberAuthKey(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{
 		"--session-file", sessionFile,
-		"room", "issue-member-auth-key",
-		"--room", "sp_123",
+		"space", "issue-member-auth-key",
+		"--space", "sp_123",
 		"--email", "bob@example.com",
 		"--auth-key-file", authKeyFile,
 	}, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("room issue-member-auth-key code=%d stderr=%s", code, stderr.String())
+		t.Fatalf("space issue-member-auth-key code=%d stderr=%s", code, stderr.String())
 	}
 	if got := stdout.String(); strings.Contains(got, "wmauth_test") {
 		t.Fatalf("stdout leaked auth key: %s", got)
@@ -275,7 +275,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	t.Setenv("SPACES_SSH_BIN", sshBin)
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--room", "sp_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--space", "sp_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("ssh connect code=%d stderr=%s", code, stderr.String())
 	}
@@ -323,7 +323,7 @@ func TestSSHClientConfigUsesSavedSessionBaseURLForHostResolution(t *testing.T) {
 	code := run([]string{
 		"--session-file", sessionFile,
 		"ssh", "client-config",
-		"--room", "sp_123",
+		"--space", "sp_123",
 		"--identity-file", identityFile,
 	}, &stdout, &stderr)
 	if code != 0 {
@@ -354,7 +354,7 @@ func TestSSHClientConfigAllowsExplicitBaseURLOverrideForHostResolution(t *testin
 		"--base-url", "https://staging.example.test",
 		"--session-file", sessionFile,
 		"ssh", "client-config",
-		"--room", "sp_123",
+		"--space", "sp_123",
 		"--identity-file", identityFile,
 	}, &stdout, &stderr)
 	if code != 0 {
@@ -386,7 +386,7 @@ func TestSSHClientConfigRejectsUnsafeUserFromEnvironment(t *testing.T) {
 	code := run([]string{
 		"--session-file", sessionFile,
 		"ssh", "client-config",
-		"--room", "sp_123",
+		"--space", "sp_123",
 		"--identity-file", identityFile,
 		"--host", "cell.example.com",
 	}, &stdout, &stderr)
@@ -420,7 +420,7 @@ func TestAuthLoginRequiresEmailAndKey(t *testing.T) {
 	}
 }
 
-func TestRoomCreateRequiresName(t *testing.T) {
+func TestSpaceCreateRequiresName(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
 		"authLogin": {
 			Body: map[string]any{"ok": true, "email": "alice@example.com", "session_token": "sess_test"},
@@ -431,28 +431,28 @@ func TestRoomCreateRequiresName(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "room", "create"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "space", "create"}, &stdout, &stderr)
 	if code == 0 {
 		t.Fatal("expected non-zero exit code when --name is missing")
 	}
 }
 
-func TestRoomUpRequiresRoomFlag(t *testing.T) {
+func TestSpaceUpRequiresSpaceFlag(t *testing.T) {
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "room", "up"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "space", "up"}, &stdout, &stderr)
 	if code == 0 {
-		t.Fatal("expected non-zero exit code when --room is missing")
+		t.Fatal("expected non-zero exit code when --space is missing")
 	}
-	if !strings.Contains(stderr.String(), "--room is required") {
+	if !strings.Contains(stderr.String(), "--space is required") {
 		t.Fatalf("stderr missing expected message: %s", stderr.String())
 	}
 }
 
-func TestRoomCreateListUpDownDelete(t *testing.T) {
+func TestSpaceCreateListUpDownDelete(t *testing.T) {
 	spaceBody := map[string]any{
 		"id": "sp_1", "name": "test-room", "role": "admin",
 		"owner_user_id":  1,
@@ -515,20 +515,20 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 
 	// Create
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "room", "create", "--name", "test-room"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "space", "create", "--name", "test-room"}, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("room create code=%d stderr=%s", code, stderr.String())
+		t.Fatalf("space create code=%d stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "created room") {
-		t.Fatalf("stdout missing 'created room': %s", stdout.String())
+	if !strings.Contains(stdout.String(), "created space") {
+		t.Fatalf("stdout missing 'created space': %s", stdout.String())
 	}
 
 	// List
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "room", "list"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "space", "list"}, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("room list code=%d stderr=%s", code, stderr.String())
+		t.Fatalf("space list code=%d stderr=%s", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "test-room") {
 		t.Fatalf("stdout missing 'test-room': %s", stdout.String())
@@ -537,9 +537,9 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 	// Up
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "room", "up", "--room", "sp_1"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "space", "up", "--space", "sp_1"}, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("room up code=%d stderr=%s", code, stderr.String())
+		t.Fatalf("space up code=%d stderr=%s", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "is running") {
 		t.Fatalf("stdout missing 'is running': %s", stdout.String())
@@ -548,9 +548,9 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 	// Down
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "room", "down", "--room", "sp_1"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "space", "down", "--space", "sp_1"}, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("room down code=%d stderr=%s", code, stderr.String())
+		t.Fatalf("space down code=%d stderr=%s", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "is stopped") {
 		t.Fatalf("stdout missing 'is stopped': %s", stdout.String())
@@ -559,12 +559,12 @@ func TestRoomCreateListUpDownDelete(t *testing.T) {
 	// Delete
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "room", "delete", "--room", "sp_1"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "space", "delete", "--space", "sp_1"}, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("room delete code=%d stderr=%s", code, stderr.String())
+		t.Fatalf("space delete code=%d stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "deleted room") {
-		t.Fatalf("stdout missing 'deleted room': %s", stdout.String())
+	if !strings.Contains(stdout.String(), "deleted space") {
+		t.Fatalf("stdout missing 'deleted space': %s", stdout.String())
 	}
 }
 
@@ -966,7 +966,7 @@ func TestSSHRemoveKeyRequiresFingerprint(t *testing.T) {
 	}
 }
 
-func TestSSHConnectRequiresRoom(t *testing.T) {
+func TestSSHConnectRequiresSpace(t *testing.T) {
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
 		t.Fatal(err)
@@ -975,30 +975,30 @@ func TestSSHConnectRequiresRoom(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"--session-file", sessionFile, "ssh", "connect"}, &stdout, &stderr)
 	if code == 0 {
-		t.Fatal("expected non-zero exit code when --room is missing")
+		t.Fatal("expected non-zero exit code when --space is missing")
 	}
-	if !strings.Contains(stderr.String(), "--room is required") {
+	if !strings.Contains(stderr.String(), "--space is required") {
 		t.Fatalf("stderr missing expected message: %s", stderr.String())
 	}
 }
 
-func TestSSHConnectRejectsUnsafeRoomID(t *testing.T) {
+func TestSSHConnectRejectsUnsafeSpaceID(t *testing.T) {
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 	if err := saveSession(sessionFile, localSession{BaseURL: "http://127.0.0.1", Email: "a@b.com", SessionToken: "sess"}); err != nil {
 		t.Fatal(err)
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--room", "sp_123;touch", "--host", "cell.example.com"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--space", "sp_123;touch", "--host", "cell.example.com"}, &stdout, &stderr)
 	if code == 0 {
-		t.Fatal("expected non-zero exit code for unsafe room ID")
+		t.Fatal("expected non-zero exit code for unsafe space ID")
 	}
-	if !strings.Contains(stderr.String(), "room ID must contain only") {
-		t.Fatalf("stderr missing room validation error: %s", stderr.String())
+	if !strings.Contains(stderr.String(), "space ID must contain only") {
+		t.Fatalf("stderr missing space validation error: %s", stderr.String())
 	}
 }
 
-func TestSSHClientConfigRequiresRoom(t *testing.T) {
+func TestSSHClientConfigRequiresSpace(t *testing.T) {
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
 		t.Fatal(err)
@@ -1007,9 +1007,9 @@ func TestSSHClientConfigRequiresRoom(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"--session-file", sessionFile, "ssh", "client-config"}, &stdout, &stderr)
 	if code == 0 {
-		t.Fatal("expected non-zero exit code when --room is missing")
+		t.Fatal("expected non-zero exit code when --space is missing")
 	}
-	if !strings.Contains(stderr.String(), "--room is required") {
+	if !strings.Contains(stderr.String(), "--space is required") {
 		t.Fatalf("stderr missing expected message: %s", stderr.String())
 	}
 }
@@ -1032,13 +1032,13 @@ func TestSubcommandHelpWithoutAuth(t *testing.T) {
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 
 	subcmds := [][]string{
-		{"room", "create", "-h"},
-		{"room", "up", "-h"},
-		{"room", "down", "-h"},
-		{"room", "delete", "-h"},
-		{"room", "issue-member-auth-key", "-h"},
-		{"room", "member-auth-keys", "-h"},
-		{"room", "revoke-member-auth-key", "-h"},
+		{"space", "create", "-h"},
+		{"space", "up", "-h"},
+		{"space", "down", "-h"},
+		{"space", "delete", "-h"},
+		{"space", "issue-member-auth-key", "-h"},
+		{"space", "member-auth-keys", "-h"},
+		{"space", "revoke-member-auth-key", "-h"},
 		{"ssh", "add-key", "-h"},
 		{"ssh", "remove-key", "-h"},
 		{"ssh", "issue-cert", "-h"},

@@ -70,7 +70,7 @@ that session unless you pass `--base-url` explicitly. Here we set
 uses the original session host:
 
 ```run:shell
-$ SPACES_BASE_URL=https://staging.example.test SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test | grep HostName
+$ SPACES_BASE_URL=https://staging.example.test SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test | grep HostName
   HostName 127.0.0.1
 ```
 
@@ -80,7 +80,7 @@ Passing `--base-url` remains an explicit opt-in override, even when a session is
 already saved:
 
 ```run:shell
-$ SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url https://staging.example.test ssh client-config --room sp_1 --identity-file ${tmp}/id_test | grep HostName
+$ SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url https://staging.example.test ssh client-config --space sp_1 --identity-file ${tmp}/id_test | grep HostName
   HostName staging.example.test
 ```
 
@@ -100,8 +100,8 @@ SSH-related environment variables override defaults:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SPACES_SSH_HOST` | derived from base URL | Room-entry SSH host |
-| `SPACES_SSH_PORT` | `22` | Room-entry SSH port |
+| `SPACES_SSH_HOST` | derived from base URL | SSH entry host |
+| `SPACES_SSH_PORT` | `22` | SSH entry port |
 | `SPACES_SSH_LOGIN_USER` | `spaces-room` | SSH login user |
 | `SPACES_SSH_KNOWN_HOSTS_FILE` | OpenSSH default | known_hosts file used for strict host verification |
 | `SPACES_SSH_BIN` | `ssh` from PATH | local ssh binary |
@@ -110,7 +110,7 @@ Setting `SPACES_SSH_LOGIN_USER` overrides the default login user in
 the generated SSH config:
 
 ```run:shell
-$ SPACES_SSH_LOGIN_USER=custom-user SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
+$ SPACES_SSH_LOGIN_USER=custom-user SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
   User custom-user
 ```
 
@@ -118,13 +118,13 @@ Setting `SPACES_SSH_KNOWN_HOSTS_FILE` adds an explicit `UserKnownHostsFile`
 entry to the generated SSH config:
 
 ```run:shell
-$ SPACES_SSH_KNOWN_HOSTS_FILE=/tmp/spaces-known-hosts SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep UserKnownHostsFile
+$ SPACES_SSH_KNOWN_HOSTS_FILE=/tmp/spaces-known-hosts SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep UserKnownHostsFile
   UserKnownHostsFile /tmp/spaces-known-hosts
 ```
 
 Unsafe SSH config values are rejected instead of being emitted into the config:
 
 ```run:shell
-$ ! SPACES_SSH_LOGIN_USER="$(printf 'spaces-room\nProxyCommand whoami')" SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com 2>&1
+$ ! SPACES_SSH_LOGIN_USER="$(printf 'spaces-room\nProxyCommand whoami')" SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test --host test.example.com 2>&1
 error: user must not contain whitespace or control characters
 ```

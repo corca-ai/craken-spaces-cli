@@ -8,7 +8,7 @@ The CLI manages SSH public keys and short-lived certificates for secure Room
 entry. The typical flow is:
 
 1. **Register** your SSH public key once with `ssh add-key`.
-2. **Connect** to a Room with `ssh connect` -- the CLI automatically
+2. **Connect** to a Space with `ssh connect` -- the CLI automatically
    issues a short-lived certificate and invokes `ssh`.
 
 For advanced use, you can issue certificates manually with `ssh issue-cert`
@@ -72,16 +72,16 @@ $ ${cli} ssh remove-key --fingerprint SHA256:fake1
 removed ssh key SHA256:fake1
 ```
 
-## Connecting to a Room
+## Connecting to a Space
 
 ### Quick connect
 
-`ssh connect` is the easiest way to enter a Room. It handles certificate
-issuance automatically. The `--room` flag takes the Room ID (e.g. `sp_xxx`)
-shown by `room create` or `room list`:
+`ssh connect` is the easiest way to enter a Space. It handles certificate
+issuance automatically. The `--space` flag takes the Space ID (e.g. `sp_xxx`)
+shown by `space create` or `space list`:
 
 ```sh
-spaces ssh connect --room sp_xxx
+spaces ssh connect --space sp_xxx
 ```
 
 Behind the scenes, the CLI:
@@ -89,7 +89,7 @@ Behind the scenes, the CLI:
 1. Reads your local private key (defaults to `~/.ssh/id_ed25519`)
 2. Sends the public key to the control plane to get a short-lived certificate
 3. Writes the certificate next to the private key
-4. Runs `ssh` with strict host-key checking, the certificate, the identity file, and the Room target
+4. Runs `ssh` with strict host-key checking, the certificate, the identity file, and the Space target
 
 ### OpenSSH config
 
@@ -99,7 +99,7 @@ contain whitespace or control characters, because those values would change the
 meaning of the generated `ssh_config` directives:
 
 ```run:shell
-$ ${cli} ssh client-config --room sp_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | grep -E 'HostName|StrictHostKeyChecking'
+$ ${cli} ssh client-config --space sp_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | grep -E 'HostName|StrictHostKeyChecking'
   HostName cell.example.com
   StrictHostKeyChecking yes
 ```

@@ -20,7 +20,7 @@
       "group": "Features",
       "docs": [
         "specs/auth.spec.md",
-        "specs/room.spec.md",
+        "specs/space.spec.md",
         "specs/ssh.spec.md"
       ]
     },

@@ -38,7 +38,7 @@ type sshClientConfig struct {
 	Port            int
 	IdentityFile    string
 	CertificateFile string
-	RoomID          string
+	SpaceID         string
 	KnownHostsFile  string
 }
 
@@ -129,7 +129,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 	case "client-config":
 		fs := flag.NewFlagSet("ssh client-config", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		roomID := fs.String("room", "", "room ID to target")
+		spaceID := fs.String("space", "", "space ID to target")
 		host := fs.String("host", "", "SSH host name")
 		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
@@ -142,11 +142,11 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" {
-			fmt.Fprintln(stderr, "error: --room is required")
+		if strings.TrimSpace(*spaceID) == "" {
+			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		validRoomID, err := validateSSHRoomID(*roomID)
+		validSpaceID, err := validateSSHSpaceID(*spaceID)
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
@@ -155,7 +155,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			return printCLIError(stderr, err)
 		}
 		if strings.TrimSpace(*alias) == "" {
-			*alias = "spaces-" + validRoomID
+			*alias = "spaces-" + validSpaceID
 		}
 		if strings.TrimSpace(*identityFile) == "" {
 			*identityFile, _, err = resolveSSHIdentityFile("")
@@ -170,7 +170,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			Port:            *port,
 			IdentityFile:    *identityFile,
 			CertificateFile: sshCertificateFileForIdentity(*identityFile),
-			RoomID:          validRoomID,
+			SpaceID:         validSpaceID,
 			KnownHostsFile:  resolveKnownHostsFile(*knownHostsFile),
 		})
 		if err != nil {
@@ -182,25 +182,25 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 	case "connect":
 		fs := flag.NewFlagSet("ssh connect", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		roomID := fs.String("room", "", "room ID to target")
+		spaceID := fs.String("space", "", "space ID to target")
 		host := fs.String("host", "", "SSH host name")
 		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
 		knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
 		certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
-		remoteCommand := fs.String("command", "", "optional command to run inside the Room")
+		remoteCommand := fs.String("command", "", "optional command to run inside the user Room")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" {
-			fmt.Fprintln(stderr, "error: --room is required")
+		if strings.TrimSpace(*spaceID) == "" {
+			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		validRoomID, err := validateSSHRoomID(*roomID)
+		validSpaceID, err := validateSSHSpaceID(*spaceID)
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
@@ -216,7 +216,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
-		target := validRoomID
+		target := validSpaceID
 		if strings.TrimSpace(*remoteCommand) != "" {
 			target = target + " -- " + *remoteCommand
 		}
@@ -388,7 +388,7 @@ func renderSSHClientConfig(config sshClientConfig) (string, error) {
 	}
 	fmt.Fprintf(&output, "  IdentityFile %s\n", config.IdentityFile)
 	fmt.Fprintf(&output, "  CertificateFile %s\n", config.CertificateFile)
-	fmt.Fprintf(&output, "  RemoteCommand %s\n", config.RoomID)
+	fmt.Fprintf(&output, "  RemoteCommand %s\n", config.SpaceID)
 	fmt.Fprintf(&output, "  ServerAliveInterval 30\n")
 	fmt.Fprintf(&output, "  ServerAliveCountMax 3\n")
 	return output.String(), nil
@@ -409,7 +409,7 @@ func validateSSHClientConfig(config sshClientConfig) error {
 			return err
 		}
 	}
-	if _, err := validateSSHRoomID(config.RoomID); err != nil {
+	if _, err := validateSSHSpaceID(config.SpaceID); err != nil {
 		return err
 	}
 	if strings.TrimSpace(config.KnownHostsFile) != "" {
@@ -420,15 +420,15 @@ func validateSSHClientConfig(config sshClientConfig) error {
 	return nil
 }
 
-func validateSSHRoomID(value string) (string, error) {
+func validateSSHSpaceID(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "", errors.New("room ID is required")
+		return "", errors.New("space ID is required")
 	}
 	const allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-"
 	for _, r := range value {
 		if !strings.ContainsRune(allowed, r) {
-			return "", errors.New("room ID must contain only letters, numbers, '.', '_', ':', or '-'")
+			return "", errors.New("space ID must contain only letters, numbers, '.', '_', ':', or '-'")
 		}
 	}
 	return value, nil
@@ -517,7 +517,7 @@ Subcommands:
   list-keys        List registered SSH keys
   remove-key       Unregister an SSH key by fingerprint
   issue-cert       Issue a short-lived SSH certificate
-  connect          Connect to a Room via SSH
+  connect          Connect to a Space via SSH
   client-config    Generate an OpenSSH config block
 
 Use "spaces ssh <subcommand> -h" for flag details.

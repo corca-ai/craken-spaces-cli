@@ -39,9 +39,9 @@ type memberAuthKeyRecord struct {
 	LLMTokensLimit  int    `json:"llm_tokens_limit"`
 }
 
-func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
+func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
 	if len(argv) == 0 || isHelpWord(argv[0]) {
-		printRoomUsage(stdout)
+		printSpaceUsage(stdout)
 		if len(argv) == 0 {
 			return 2
 		}
@@ -58,15 +58,15 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 
 	switch argv[0] {
 	case "create":
-		fs := flag.NewFlagSet("room create", flag.ContinueOnError)
+		fs := flag.NewFlagSet("space create", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		name := fs.String("name", "", "room name")
+		name := fs.String("name", "", "space name")
 		runtimeDriver := fs.String("runtime-driver", "mock", "runtime driver")
-		cpuMillis := fs.Int("cpu-millis", 4000, "room CPU ceiling in millicores")
-		memoryMiB := fs.Int("memory-mib", 8192, "room memory ceiling in MiB")
-		diskMB := fs.Int("disk-mb", 10240, "room writable disk ceiling in MB")
-		networkMB := fs.Int("network-egress-mb", 1024, "room cumulative network egress ceiling in MB")
-		llmTokens := fs.Int("llm-tokens-limit", 100000, "room LLM token ceiling")
+		cpuMillis := fs.Int("cpu-millis", 4000, "space CPU ceiling in millicores")
+		memoryMiB := fs.Int("memory-mib", 8192, "space memory ceiling in MiB")
+		diskMB := fs.Int("disk-mb", 10240, "space writable disk ceiling in MB")
+		networkMB := fs.Int("network-egress-mb", 1024, "space cumulative network egress ceiling in MB")
+		llmTokens := fs.Int("llm-tokens-limit", 100000, "space LLM token ceiling")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
@@ -93,7 +93,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		}, &response); err != nil {
 			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "created room %s (%s)\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.Name))
+		fmt.Fprintf(stdout, "created space %s (%s)\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.Name))
 		return 0
 
 	case "list":
@@ -126,61 +126,61 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		return 0
 
 	case "up", "down":
-		fs := flag.NewFlagSet("room "+argv[0], flag.ContinueOnError)
+		fs := flag.NewFlagSet("space "+argv[0], flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		roomID := fs.String("room", "", "room ID")
+		spaceID := fs.String("space", "", "space ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" {
-			fmt.Fprintln(stderr, "error: --room is required")
+		if strings.TrimSpace(*spaceID) == "" {
+			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
 		action := "up"
 		if argv[0] == "down" {
 			action = "down"
 		}
-		escapedRoomID := url.PathEscape(strings.TrimSpace(*roomID))
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
 		var response struct {
 			OK    bool        `json:"ok"`
 			Error string      `json:"error"`
 			Space spaceRecord `json:"space"`
 		}
-		if err := client.doJSON("POST", "/api/v1/spaces/"+escapedRoomID+"/"+action, nil, &response); err != nil {
+		if err := client.doJSON("POST", "/api/v1/spaces/"+escapedSpaceID+"/"+action, nil, &response); err != nil {
 			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "room %s is %s\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.RuntimeState))
+		fmt.Fprintf(stdout, "space %s is %s\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.RuntimeState))
 		return 0
 
 	case "delete":
-		fs := flag.NewFlagSet("room delete", flag.ContinueOnError)
+		fs := flag.NewFlagSet("space delete", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		roomID := fs.String("room", "", "room ID")
+		spaceID := fs.String("space", "", "space ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" {
-			fmt.Fprintln(stderr, "error: --room is required")
+		if strings.TrimSpace(*spaceID) == "" {
+			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		escapedRoomID := url.PathEscape(strings.TrimSpace(*roomID))
-		if err := client.doJSON("DELETE", "/api/v1/spaces/"+escapedRoomID+"/delete", nil, nil); err != nil {
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
+		if err := client.doJSON("DELETE", "/api/v1/spaces/"+escapedSpaceID+"/delete", nil, nil); err != nil {
 			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "deleted room %s\n", sanitizeTerminalText(*roomID))
+		fmt.Fprintf(stdout, "deleted space %s\n", sanitizeTerminalText(*spaceID))
 		return 0
 
 	case "issue-member-auth-key":
-		fs := flag.NewFlagSet("room issue-member-auth-key", flag.ContinueOnError)
+		fs := flag.NewFlagSet("space issue-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		roomID := fs.String("room", "", "room ID")
-		email := fs.String("email", "", "room member email address")
+		spaceID := fs.String("space", "", "space ID")
+		email := fs.String("email", "", "space member email address")
 		authKeyFile := fs.String("auth-key-file", "", "path to securely write the issued auth key")
 		expiresHours := fs.Int("expires-hours", 24*7, "lifetime in hours")
 		cpuMillis := fs.Int("cpu-millis", 1000, "delegated CPU ceiling")
@@ -194,18 +194,18 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" || strings.TrimSpace(*email) == "" || strings.TrimSpace(*authKeyFile) == "" {
-			fmt.Fprintln(stderr, "error: --room, --email, and --auth-key-file are required")
+		if strings.TrimSpace(*spaceID) == "" || strings.TrimSpace(*email) == "" || strings.TrimSpace(*authKeyFile) == "" {
+			fmt.Fprintln(stderr, "error: --space, --email, and --auth-key-file are required")
 			return 2
 		}
-		escapedRoomID := url.PathEscape(strings.TrimSpace(*roomID))
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
 		var response struct {
 			OK      bool                `json:"ok"`
 			Error   string              `json:"error"`
 			AuthKey memberAuthKeyRecord `json:"auth_key"`
 			Key     string              `json:"key"`
 		}
-		if err := client.doJSON("POST", "/api/v1/spaces/"+escapedRoomID+"/member-auth-keys", map[string]any{
+		if err := client.doJSON("POST", "/api/v1/spaces/"+escapedSpaceID+"/member-auth-keys", map[string]any{
 			"email":             *email,
 			"expires_hours":     *expiresHours,
 			"cpu_millis":        *cpuMillis,
@@ -219,32 +219,32 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		if err := writeSecretFile(*authKeyFile, response.Key); err != nil {
 			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "issued room member auth key %d for %s\n", response.AuthKey.ID, sanitizeTerminalText(response.AuthKey.InviteeEmail))
+		fmt.Fprintf(stdout, "issued space member auth key %d for %s\n", response.AuthKey.ID, sanitizeTerminalText(response.AuthKey.InviteeEmail))
 		fmt.Fprintf(stdout, "auth_key_file=%s\n", sanitizeTerminalText(*authKeyFile))
 		fmt.Fprintf(stdout, "expires_at=%s\n", sanitizeTerminalText(response.AuthKey.ExpiresAt))
 		return 0
 
 	case "member-auth-keys":
-		fs := flag.NewFlagSet("room member-auth-keys", flag.ContinueOnError)
+		fs := flag.NewFlagSet("space member-auth-keys", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		roomID := fs.String("room", "", "room ID")
+		spaceID := fs.String("space", "", "space ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" {
-			fmt.Fprintln(stderr, "error: --room is required")
+		if strings.TrimSpace(*spaceID) == "" {
+			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		escapedRoomID := url.PathEscape(strings.TrimSpace(*roomID))
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
 		var response struct {
 			OK       bool                  `json:"ok"`
 			Error    string                `json:"error"`
 			AuthKeys []memberAuthKeyRecord `json:"auth_keys"`
 		}
-		if err := client.doJSON("GET", "/api/v1/spaces/"+escapedRoomID+"/member-auth-keys", nil, &response); err != nil {
+		if err := client.doJSON("GET", "/api/v1/spaces/"+escapedSpaceID+"/member-auth-keys", nil, &response); err != nil {
 			return printCLIError(stderr, err)
 		}
 		rows := make([][]string, 0, len(response.AuthKeys))
@@ -269,9 +269,9 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		return 0
 
 	case "revoke-member-auth-key":
-		fs := flag.NewFlagSet("room revoke-member-auth-key", flag.ContinueOnError)
+		fs := flag.NewFlagSet("space revoke-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		roomID := fs.String("room", "", "room ID")
+		spaceID := fs.String("space", "", "space ID")
 		authKeyID := fs.Int64("id", 0, "auth key ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
@@ -279,38 +279,38 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" || *authKeyID <= 0 {
-			fmt.Fprintln(stderr, "error: --room and --id are required")
+		if strings.TrimSpace(*spaceID) == "" || *authKeyID <= 0 {
+			fmt.Fprintln(stderr, "error: --space and --id are required")
 			return 2
 		}
-		escapedRoomID := url.PathEscape(strings.TrimSpace(*roomID))
-		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/spaces/%s/member-auth-keys/%d", escapedRoomID, *authKeyID), nil, nil); err != nil {
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
+		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/spaces/%s/member-auth-keys/%d", escapedSpaceID, *authKeyID), nil, nil); err != nil {
 			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "revoked room member auth key %d\n", *authKeyID)
+		fmt.Fprintf(stdout, "revoked space member auth key %d\n", *authKeyID)
 		return 0
 
 	default:
-		fmt.Fprintf(stderr, "error: unknown room subcommand %q\n\n", argv[0])
-		printRoomUsage(stderr)
+		fmt.Fprintf(stderr, "error: unknown space subcommand %q\n\n", argv[0])
+		printSpaceUsage(stderr)
 		return 2
 	}
 }
 
-func printRoomUsage(w io.Writer) {
-	fmt.Fprint(w, `Usage: spaces room <subcommand> [flags]
+func printSpaceUsage(w io.Writer) {
+	fmt.Fprint(w, `Usage: spaces space <subcommand> [flags]
 
 Subcommands:
-  create                    Create a new Room (--name required)
-  list                      List Rooms you have access to
-  up                        Start a Room (--room required)
-  down                      Stop a Room (--room required)
-  delete                    Permanently delete a Room (--room required)
+  create                    Create a new Space (--name required)
+  list                      List Spaces you have access to
+  up                        Start a Space (--space required)
+  down                      Stop a Space (--space required)
+  delete                    Permanently delete a Space (--space required)
   issue-member-auth-key     Invite a member with a scoped auth key
-  member-auth-keys          List issued member auth keys for a Room
+  member-auth-keys          List issued member auth keys for a Space
   revoke-member-auth-key    Revoke a member auth key
 
-Use "spaces room <subcommand> -h" for flag details.
+Use "spaces space <subcommand> -h" for flag details.
 `)
 }
 

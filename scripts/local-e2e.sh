@@ -118,48 +118,48 @@ if ! "${spaces_cli_bin}" --session-file "${alice_session}" ssh list-keys | grep 
 	exit 1
 fi
 
-create_output="$("${spaces_cli_bin}" --session-file "${alice_session}" room create --name cli-smoke)"
-room_id="$(printf '%s\n' "${create_output}" | awk '/^created room / {print $3}')"
-if [[ -z "${room_id}" ]]; then
-	echo "failed to parse room id" >&2
+create_output="$("${spaces_cli_bin}" --session-file "${alice_session}" space create --name cli-smoke)"
+space_id="$(printf '%s\n' "${create_output}" | awk '/^created space / {print $3}')"
+if [[ -z "${space_id}" ]]; then
+	echo "failed to parse space id" >&2
 	printf '%s\n' "${create_output}" >&2
 	exit 1
 fi
 
-if ! "${spaces_cli_bin}" --session-file "${alice_session}" room list | grep -q "${room_id}"; then
-	echo "Alice room list does not contain ${room_id}" >&2
+if ! "${spaces_cli_bin}" --session-file "${alice_session}" space list | grep -q "${space_id}"; then
+	echo "Alice space list does not contain ${space_id}" >&2
 	exit 1
 fi
 
-"${spaces_cli_bin}" --session-file "${alice_session}" room up --room "${room_id}" >/dev/null
-"${spaces_cli_bin}" --session-file "${alice_session}" room down --room "${room_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" space up --space "${space_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" space down --space "${space_id}" >/dev/null
 
-issue_output="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email bob@example.com --auth-key-file "${bob_auth_key_file}")"
+issue_output="$("${spaces_cli_bin}" --session-file "${alice_session}" space issue-member-auth-key --space "${space_id}" --email bob@example.com --auth-key-file "${bob_auth_key_file}")"
 if [[ ! -f "${bob_auth_key_file}" ]]; then
 	echo "failed to write Bob auth key file" >&2
 	printf '%s\n' "${issue_output}" >&2
 	exit 1
 fi
 
-if ! "${spaces_cli_bin}" --session-file "${alice_session}" room member-auth-keys --room "${room_id}" | grep -q "bob@example.com"; then
+if ! "${spaces_cli_bin}" --session-file "${alice_session}" space member-auth-keys --space "${space_id}" | grep -q "bob@example.com"; then
 	echo "member-auth-keys did not contain bob@example.com" >&2
 	exit 1
 fi
 
-charlie_issue="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email charlie@example.com --auth-key-file "${charlie_auth_key_file}")"
-charlie_key_id="$(printf '%s\n' "${charlie_issue}" | awk '/^issued room member auth key / {print $6}')"
+charlie_issue="$("${spaces_cli_bin}" --session-file "${alice_session}" space issue-member-auth-key --space "${space_id}" --email charlie@example.com --auth-key-file "${charlie_auth_key_file}")"
+charlie_key_id="$(printf '%s\n' "${charlie_issue}" | awk '/^issued space member auth key / {print $6}')"
 if [[ -z "${charlie_key_id}" || ! -f "${charlie_auth_key_file}" ]]; then
 	echo "failed to parse Charlie auth key metadata" >&2
 	printf '%s\n' "${charlie_issue}" >&2
 	exit 1
 fi
 
-"${spaces_cli_bin}" --session-file "${alice_session}" room revoke-member-auth-key --room "${room_id}" --id "${charlie_key_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" space revoke-member-auth-key --space "${space_id}" --id "${charlie_key_id}" >/dev/null
 
 if "${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${charlie_session}" auth login \
 	--email charlie@example.com \
 	--key-file "${charlie_auth_key_file}" >/dev/null 2>&1; then
-	echo "Charlie unexpectedly logged in with a revoked room member auth key" >&2
+	echo "Charlie unexpectedly logged in with a revoked space member auth key" >&2
 	exit 1
 fi
 
@@ -167,18 +167,18 @@ fi
 	--email bob@example.com \
 	--key-file "${bob_auth_key_file}" >/dev/null
 
-if ! "${spaces_cli_bin}" --session-file "${bob_session}" room list | grep -q "${room_id}"; then
-	echo "Bob room list does not contain ${room_id}" >&2
+if ! "${spaces_cli_bin}" --session-file "${bob_session}" space list | grep -q "${space_id}"; then
+	echo "Bob space list does not contain ${space_id}" >&2
 	exit 1
 fi
 
-if "${spaces_cli_bin}" --session-file "${bob_session}" room create --name should-fail >/dev/null 2>&1; then
-	echo "Bob unexpectedly created a room with no top-level grant" >&2
+if "${spaces_cli_bin}" --session-file "${bob_session}" space create --name should-fail >/dev/null 2>&1; then
+	echo "Bob unexpectedly created a space with no top-level grant" >&2
 	exit 1
 fi
 
-if "${spaces_cli_bin}" --session-file "${bob_session}" room issue-member-auth-key --room "${room_id}" --email eve@example.com >/dev/null 2>&1; then
-	echo "Bob unexpectedly issued a room member auth key" >&2
+if "${spaces_cli_bin}" --session-file "${bob_session}" space issue-member-auth-key --space "${space_id}" --email eve@example.com >/dev/null 2>&1; then
+	echo "Bob unexpectedly issued a space member auth key" >&2
 	exit 1
 fi
 
