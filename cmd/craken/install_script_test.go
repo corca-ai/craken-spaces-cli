@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -44,6 +45,25 @@ func TestInstallScriptRejectsChecksumMismatch(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(installDir, "spaces")); !os.IsNotExist(statErr) {
 		t.Fatalf("binary should not have been installed, stat err=%v", statErr)
+	}
+}
+
+func TestInstallDocsAvoidCurlPipeToSh(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		filepath.Join(wd, "..", "..", "README.md"),
+		filepath.Join(wd, "..", "..", "specs", "index.spec.md"),
+	} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("ReadFile(%s): %v", path, err)
+		}
+		if strings.Contains(string(data), "| sh") {
+			t.Fatalf("%s still contains curl-pipe-to-shell guidance", path)
+		}
 	}
 }
 

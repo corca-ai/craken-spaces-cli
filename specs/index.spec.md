@@ -52,10 +52,11 @@ short-lived certificates for secure Room entry.
 brew install corca-ai/tap/craken-spaces-cli
 ```
 
-Or download the binary directly:
+Or download the installer script locally, review it, then run it:
 
 ```sh
-curl -sSfL https://raw.githubusercontent.com/corca-ai/craken-spaces-cli/main/install.sh | sh
+curl -sSfL -o install.sh https://raw.githubusercontent.com/corca-ai/craken-spaces-cli/main/install.sh
+sh install.sh
 ```
 
 ## Quick Start for Admins

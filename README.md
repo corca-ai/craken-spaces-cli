@@ -10,6 +10,14 @@ See [AGENTS.md](AGENTS.md) for architecture and development details.
 brew install corca-ai/tap/craken-spaces-cli
 ```
 
+If you use the installer script, download it first and run it locally instead
+of piping it straight to `sh`:
+
+```sh
+curl -sSfL -o install.sh https://raw.githubusercontent.com/corca-ai/craken-spaces-cli/main/install.sh
+sh install.sh
+```
+
 ## Usage
 
 ```sh
