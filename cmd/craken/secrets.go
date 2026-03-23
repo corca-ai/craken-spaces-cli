@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"golang.org/x/term"
 )
@@ -150,7 +149,7 @@ func validateSecretParentDir(path string) error {
 	if info.Mode().Perm()&0o022 != 0 {
 		return fmt.Errorf("parent directory %s must not be group- or world-writable", dir)
 	}
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Geteuid() {
+	if !currentUserOwnsFileInfo(info) {
 		return fmt.Errorf("parent directory %s must be owned by the current user", dir)
 	}
 	return nil
@@ -166,7 +165,7 @@ func validateSecretFile(path string, info os.FileInfo) error {
 	if info.Mode().Perm()&0o077 != 0 {
 		return fmt.Errorf("%s must not be accessible by group or others", path)
 	}
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Geteuid() {
+	if !currentUserOwnsFileInfo(info) {
 		return fmt.Errorf("%s must be owned by the current user", path)
 	}
 	return nil
