@@ -103,14 +103,14 @@ SSH-related environment variables override defaults:
 | `SPACES_SSH_HOST` | derived from base URL | SSH entry host |
 | `SPACES_SSH_PORT` | `22` | SSH entry port |
 | `SPACES_SSH_LOGIN_USER` | `spaces-room` | SSH login user |
-| `SPACES_SSH_KNOWN_HOSTS_FILE` | OpenSSH default | known_hosts file used for strict host verification |
+| `SPACES_SSH_KNOWN_HOSTS_FILE` | `~/.ssh/spaces_known_hosts` | known_hosts file used for strict host verification |
 | `SPACES_SSH_BIN` | `ssh` from PATH | local ssh binary |
 
 Setting `SPACES_SSH_LOGIN_USER` overrides the default login user in
 the generated SSH config:
 
 ```run:shell
-$ SPACES_SSH_LOGIN_USER=custom-user SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
+$ SPACES_SSH_LOGIN_USER=custom-user SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep '^  User '
   User custom-user
 ```
 

@@ -14,9 +14,9 @@ done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
-managed_root="${SPACES_MANAGED_AGENTS_DIR:-${CRAKEN_MANAGED_AGENTS_DIR:-${repo_root}/../craken-managed-agents}}"
+managed_root="${SPACES_SERVER_REPO_DIR:-${SPACES_MANAGED_AGENTS_DIR:-${CRAKEN_MANAGED_AGENTS_DIR:-${repo_root}/../craken-spaces}}}"
 if [[ ! -f "${managed_root}/go.mod" || ! -f "${managed_root}/cmd/spaces/main.go" ]]; then
-	echo "managed-agents checkout not found: ${managed_root}" >&2
+	echo "server checkout not found: ${managed_root}" >&2
 	exit 1
 fi
 
@@ -119,6 +119,7 @@ if ! "${spaces_cli_bin}" --session-file "${alice_session}" ssh list-keys | grep 
 fi
 
 create_output="$("${spaces_cli_bin}" --session-file "${alice_session}" space create --name cli-smoke)"
+space_name="cli-smoke"
 space_id="$(printf '%s\n' "${create_output}" | awk '/^created space / {print $3}')"
 if [[ -z "${space_id}" ]]; then
 	echo "failed to parse space id" >&2
@@ -131,22 +132,21 @@ if ! "${spaces_cli_bin}" --session-file "${alice_session}" space list | grep -q 
 	exit 1
 fi
 
-"${spaces_cli_bin}" --session-file "${alice_session}" space up --space "${space_id}" >/dev/null
-"${spaces_cli_bin}" --session-file "${alice_session}" space down --space "${space_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" space down --space "${space_name}" >/dev/null
 
-issue_output="$("${spaces_cli_bin}" --session-file "${alice_session}" space issue-member-auth-key --space "${space_id}" --email bob@example.com --auth-key-file "${bob_auth_key_file}")"
+issue_output="$("${spaces_cli_bin}" --session-file "${alice_session}" space issue-member-auth-key --space "${space_name}" --email bob@example.com --auth-key-file "${bob_auth_key_file}")"
 if [[ ! -f "${bob_auth_key_file}" ]]; then
 	echo "failed to write Bob auth key file" >&2
 	printf '%s\n' "${issue_output}" >&2
 	exit 1
 fi
 
-if ! "${spaces_cli_bin}" --session-file "${alice_session}" space member-auth-keys --space "${space_id}" | grep -q "bob@example.com"; then
+if ! "${spaces_cli_bin}" --session-file "${alice_session}" space member-auth-keys --space "${space_name}" | grep -q "bob@example.com"; then
 	echo "member-auth-keys did not contain bob@example.com" >&2
 	exit 1
 fi
 
-charlie_issue="$("${spaces_cli_bin}" --session-file "${alice_session}" space issue-member-auth-key --space "${space_id}" --email charlie@example.com --auth-key-file "${charlie_auth_key_file}")"
+charlie_issue="$("${spaces_cli_bin}" --session-file "${alice_session}" space issue-member-auth-key --space "${space_name}" --email charlie@example.com --auth-key-file "${charlie_auth_key_file}")"
 charlie_key_id="$(printf '%s\n' "${charlie_issue}" | awk '/^issued space member auth key / {print $6}')"
 if [[ -z "${charlie_key_id}" || ! -f "${charlie_auth_key_file}" ]]; then
 	echo "failed to parse Charlie auth key metadata" >&2
@@ -154,7 +154,7 @@ if [[ -z "${charlie_key_id}" || ! -f "${charlie_auth_key_file}" ]]; then
 	exit 1
 fi
 
-"${spaces_cli_bin}" --session-file "${alice_session}" space revoke-member-auth-key --space "${space_id}" --id "${charlie_key_id}" >/dev/null
+"${spaces_cli_bin}" --session-file "${alice_session}" space revoke-member-auth-key --space "${space_name}" --id "${charlie_key_id}" >/dev/null
 
 if "${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${charlie_session}" auth login \
 	--email charlie@example.com \
@@ -177,8 +177,15 @@ if "${spaces_cli_bin}" --session-file "${bob_session}" space create --name shoul
 	exit 1
 fi
 
-if "${spaces_cli_bin}" --session-file "${bob_session}" space issue-member-auth-key --space "${space_id}" --email eve@example.com >/dev/null 2>&1; then
+if "${spaces_cli_bin}" --session-file "${bob_session}" space issue-member-auth-key --space "${space_name}" --email eve@example.com >/dev/null 2>&1; then
 	echo "Bob unexpectedly issued a space member auth key" >&2
+	exit 1
+fi
+
+ssh_config_output="$("${spaces_cli_bin}" --session-file "${alice_session}" ssh client-config --space "${space_name}" --host spaces.example.test)"
+if ! printf '%s\n' "${ssh_config_output}" | grep -q "RemoteCommand ${space_id}"; then
+	echo "ssh client-config did not resolve exact space name to ${space_id}" >&2
+	printf '%s\n' "${ssh_config_output}" >&2
 	exit 1
 fi
 

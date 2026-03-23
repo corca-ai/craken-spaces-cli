@@ -17,6 +17,7 @@ import (
 type sshKeyRecord struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
+	PublicKey   string `json:"public_key"`
 	Fingerprint string `json:"fingerprint"`
 	CreatedAt   string `json:"created_at"`
 }
@@ -129,11 +130,11 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 	case "client-config":
 		fs := flag.NewFlagSet("ssh client-config", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		spaceID := fs.String("space", "", "space ID to target")
+		spaceRef := fs.String("space", "", "space ID or exact space name to target")
 		host := fs.String("host", "", "SSH host name")
 		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
-		identityFile := fs.String("identity-file", "", "SSH private key path")
+		identityFile := fs.String("identity-file", "", "SSH private key path; defaults to ~/.ssh/id_ed25519_spaces and generates it if needed")
 		knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
 		alias := fs.String("alias", "", "SSH host alias")
 		if err := fs.Parse(argv[1:]); err != nil {
@@ -142,11 +143,15 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			}
 			return 2
 		}
-		if strings.TrimSpace(*spaceID) == "" {
+		if strings.TrimSpace(*spaceRef) == "" {
 			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		validSpaceID, err := validateSSHSpaceID(*spaceID)
+		space, err := resolveSpaceRef(client, *spaceRef)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		validSpaceID, err := validateSSHSpaceID(space.ID)
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
@@ -158,10 +163,15 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			*alias = "spaces-" + validSpaceID
 		}
 		if strings.TrimSpace(*identityFile) == "" {
-			*identityFile, _, err = resolveSSHIdentityFile("")
-			if err != nil {
-				return printCLIError(stderr, err)
+			material, materialErr := ensureSSHIdentityMaterial("")
+			if materialErr != nil {
+				return printCLIError(stderr, materialErr)
 			}
+			*identityFile = material.IdentityFile
+		}
+		knownHostsPath, err := resolvedKnownHostsFile(*knownHostsFile)
+		if err != nil {
+			return printCLIError(stderr, err)
 		}
 		config, err := renderSSHClientConfig(sshClientConfig{
 			Alias:           *alias,
@@ -171,7 +181,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			IdentityFile:    *identityFile,
 			CertificateFile: sshCertificateFileForIdentity(*identityFile),
 			SpaceID:         validSpaceID,
-			KnownHostsFile:  resolveKnownHostsFile(*knownHostsFile),
+			KnownHostsFile:  knownHostsPath,
 		})
 		if err != nil {
 			return printCLIError(stderr, err)
@@ -182,11 +192,11 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 	case "connect":
 		fs := flag.NewFlagSet("ssh connect", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		spaceID := fs.String("space", "", "space ID to target")
+		spaceRef := fs.String("space", "", "space ID or exact space name to target")
 		host := fs.String("host", "", "SSH host name")
 		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
-		identityFile := fs.String("identity-file", "", "SSH private key path")
+		identityFile := fs.String("identity-file", "", "SSH private key path; defaults to ~/.ssh/id_ed25519_spaces and generates it if needed")
 		knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
 		certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
 		remoteCommand := fs.String("command", "", "optional command to run inside the user Room")
@@ -196,15 +206,23 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			}
 			return 2
 		}
-		if strings.TrimSpace(*spaceID) == "" {
+		if strings.TrimSpace(*spaceRef) == "" {
 			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		validSpaceID, err := validateSSHSpaceID(*spaceID)
+		space, err := resolveSpaceRef(client, *spaceRef)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		validSpaceID, err := validateSSHSpaceID(space.ID)
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
 		resolvedHost, err := resolveSSHHost(*host, client.BaseURL)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		knownHostsPath, err := ensureSSHKnownHost(client, resolvedHost, *port, *knownHostsFile)
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
@@ -222,7 +240,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 		}
 		args := buildSSHConnectArgs(sshConnectOptions{
 			Port:           *port,
-			KnownHostsFile: resolveKnownHostsFile(*knownHostsFile),
+			KnownHostsFile: knownHostsPath,
 			CertFile:       issued.CertFile,
 			IdentityFile:   issued.IdentityFile,
 			User:           *user,
@@ -256,7 +274,7 @@ type issuedSSHCert struct {
 func cmdSSHIssueCert(client apiClient, argv []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("ssh issue-cert", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	identityFile := fs.String("identity-file", "", "SSH private key path")
+	identityFile := fs.String("identity-file", "", "SSH private key path; defaults to ~/.ssh/id_ed25519_spaces and generates it if needed")
 	principal := fs.String("principal", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "certificate principal/login user")
 	certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
 	if err := fs.Parse(argv); err != nil {
@@ -278,12 +296,11 @@ func cmdSSHIssueCert(client apiClient, argv []string, stdout, stderr io.Writer) 
 }
 
 func issueSSHCert(client apiClient, identityFile, principal, certTTL string) (issuedSSHCert, error) {
-	identityFile, publicKeyFile, err := resolveSSHIdentityFile(identityFile)
+	material, err := ensureSSHIdentityMaterial(identityFile)
 	if err != nil {
 		return issuedSSHCert{}, err
 	}
-	publicKeyData, err := os.ReadFile(filepath.Clean(publicKeyFile))
-	if err != nil {
+	if _, _, err := ensureSSHKeyRegistered(client, material); err != nil {
 		return issuedSSHCert{}, err
 	}
 	var response struct {
@@ -295,18 +312,18 @@ func issueSSHCert(client apiClient, identityFile, principal, certTTL string) (is
 		Certificate string `json:"certificate"`
 	}
 	if err := client.doJSON("POST", "/api/v1/ssh/issue-cert", map[string]any{
-		"public_key": string(publicKeyData),
+		"public_key": material.PublicKey,
 		"principal":  principal,
 		"cert_ttl":   certTTL,
 	}, &response); err != nil {
 		return issuedSSHCert{}, err
 	}
-	certFile := sshCertificateFileForIdentity(identityFile)
+	certFile := sshCertificateFileForIdentity(material.IdentityFile)
 	if err := writePrivateFile(certFile, []byte(response.Certificate)); err != nil {
 		return issuedSSHCert{}, err
 	}
 	return issuedSSHCert{
-		IdentityFile: identityFile,
+		IdentityFile: material.IdentityFile,
 		CertFile:     certFile,
 		Fingerprint:  response.Fingerprint,
 		Principal:    response.Principal,
@@ -484,10 +501,8 @@ func resolveSSHHost(explicitHost, baseURL string) (string, error) {
 }
 
 func resolveKnownHostsFile(explicitPath string) string {
-	if strings.TrimSpace(explicitPath) != "" {
-		return strings.TrimSpace(explicitPath)
-	}
-	return strings.TrimSpace(os.Getenv("SPACES_SSH_KNOWN_HOSTS_FILE"))
+	path, _ := resolvedKnownHostsFile(explicitPath)
+	return path
 }
 
 func resolveSSHBinary() (string, error) {
@@ -517,7 +532,7 @@ Subcommands:
   list-keys        List registered SSH keys
   remove-key       Unregister an SSH key by fingerprint
   issue-cert       Issue a short-lived SSH certificate
-  connect          Connect to a Space via SSH
+  connect          Connect to a Space via SSH with automatic key bootstrap
   client-config    Generate an OpenSSH config block
 
 Use "spaces ssh <subcommand> -h" for flag details.

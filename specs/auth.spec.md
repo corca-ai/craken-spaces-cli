@@ -34,7 +34,9 @@ rm -rf ${tmp}
 ## Login
 
 Authenticate with your email and a one-time auth key provided by your
-Space admin:
+Space admin. On a terminal, `spaces auth login --email alice@example.com`
+prompts for the auth key automatically and masks what you type with `*`.
+The executable example here stays non-interactive by using `--key-file`:
 
 ```run:shell
 $ ${cli} auth login --email alice@example.com --key-file ${tmp}/auth.key

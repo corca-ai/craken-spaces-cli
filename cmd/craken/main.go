@@ -118,10 +118,13 @@ func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr 
 		fmt.Fprintln(stderr, "error: --key is insecure; use --key-file or --key-stdin")
 		return 2
 	}
-	if (strings.TrimSpace(*keyFile) == "" && !*keyStdin) || (strings.TrimSpace(*keyFile) != "" && *keyStdin) {
-		fmt.Fprintln(stderr, "error: use exactly one of --key-file or --key-stdin")
+	if strings.TrimSpace(*keyFile) != "" && *keyStdin {
+		fmt.Fprintln(stderr, "error: use only one of --key-file or --key-stdin")
 		return 2
 	}
+	origTerminalStatusSink := terminalStatusSink
+	terminalStatusSink = stderr
+	defer func() { terminalStatusSink = origTerminalStatusSink }()
 	authKey, err := resolveAuthKey(*keyFile, *keyStdin, stdin)
 	if err != nil {
 		return printCLIError(stderr, err)
@@ -245,7 +248,7 @@ Environment:
 
 func printAuthUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  spaces auth login --email EMAIL (--key-file PATH | --key-stdin)")
+	fmt.Fprintln(w, "  spaces auth login --email EMAIL [--key-file PATH | --key-stdin]")
 	fmt.Fprintln(w, "  spaces auth logout")
 }
 

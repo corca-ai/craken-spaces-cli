@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -8,7 +9,20 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"golang.org/x/term"
 )
+
+var (
+	isTerminalFD                      = term.IsTerminal
+	readMaskedTerminalKeyFD           = defaultReadMaskedTerminalKeyFD
+	terminalStatusSink      io.Writer = os.Stderr
+)
+
+type stdinWithFD interface {
+	io.Reader
+	Fd() uintptr
+}
 
 func resolveAuthKey(filePath string, readFromStdin bool, stdin io.Reader) (string, error) {
 	switch {
@@ -26,18 +40,87 @@ func resolveAuthKey(filePath string, readFromStdin bool, stdin io.Reader) (strin
 		if stdin == nil {
 			return "", errors.New("stdin is not available")
 		}
-		payload, err := io.ReadAll(stdin)
+		return readAuthKeyFromStdin(stdin)
+	default:
+		if stdin == nil {
+			return "", errors.New("stdin is not available")
+		}
+		if file, ok := stdin.(stdinWithFD); ok && isTerminalFD(int(file.Fd())) {
+			return readAuthKeyFromStdin(stdin)
+		}
+		return "", errors.New("one of --key-file or --key-stdin is required when stdin is not interactive")
+	}
+}
+
+func readAuthKeyFromStdin(stdin io.Reader) (string, error) {
+	if file, ok := stdin.(stdinWithFD); ok && isTerminalFD(int(file.Fd())) {
+		payload, err := readMaskedTerminalKeyFD(int(file.Fd()), "Auth key: ", terminalStatusSink)
 		if err != nil {
 			return "", err
 		}
-		key := strings.TrimSpace(string(payload))
-		if key == "" {
-			return "", errors.New("auth key is empty")
-		}
-		return key, nil
-	default:
-		return "", errors.New("one of --key-file or --key-stdin is required")
+		return normalizeAuthKey(payload)
 	}
+	payload, err := io.ReadAll(stdin)
+	if err != nil {
+		return "", err
+	}
+	return normalizeAuthKey(payload)
+}
+
+func defaultReadMaskedTerminalKeyFD(fd int, prompt string, sink io.Writer) ([]byte, error) {
+	if sink == nil {
+		sink = io.Discard
+	}
+	if _, err := fmt.Fprint(sink, prompt); err != nil {
+		return nil, err
+	}
+	state, err := term.MakeRaw(fd)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = term.Restore(fd, state) }()
+
+	input := os.NewFile(uintptr(fd), "stdin")
+	var payload bytes.Buffer
+	buffer := make([]byte, 1)
+	for {
+		n, err := input.Read(buffer)
+		if err != nil {
+			_, _ = fmt.Fprintln(sink)
+			return nil, err
+		}
+		if n == 0 {
+			continue
+		}
+		switch buffer[0] {
+		case '\r', '\n':
+			_, _ = fmt.Fprintln(sink)
+			return payload.Bytes(), nil
+		case 0x03:
+			_, _ = fmt.Fprintln(sink)
+			return nil, errors.New("auth key entry interrupted")
+		case 0x08, 0x7f:
+			if payload.Len() == 0 {
+				continue
+			}
+			payload.Truncate(payload.Len() - 1)
+			_, _ = io.WriteString(sink, "\b \b")
+		default:
+			if buffer[0] < 0x20 {
+				continue
+			}
+			payload.WriteByte(buffer[0])
+			_, _ = io.WriteString(sink, "*")
+		}
+	}
+}
+
+func normalizeAuthKey(payload []byte) (string, error) {
+	key := strings.TrimSpace(string(payload))
+	if key == "" {
+		return "", errors.New("auth key is empty")
+	}
+	return key, nil
 }
 
 func writeSecretFile(path, value string) error {

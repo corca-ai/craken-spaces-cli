@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -47,6 +48,13 @@ func TestAuthLoginAndWhoAmI(t *testing.T) {
 	})
 
 	tmpDir := t.TempDir()
+	originalHomeLookup := lookupUserHomeDir
+	lookupUserHomeDir = func() (string, error) {
+		return tmpDir, nil
+	}
+	t.Cleanup(func() {
+		lookupUserHomeDir = originalHomeLookup
+	})
 	sessionFile := filepath.Join(tmpDir, "session.json")
 	authKeyFile := writeAuthKeyFile(t, tmpDir, "auth_test")
 
@@ -207,6 +215,61 @@ func TestAuthLoginReadsKeyFromStdin(t *testing.T) {
 	}
 }
 
+func TestAuthLoginPromptsForKeyOnInteractiveTerminal(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authLogin": {
+			Body: map[string]any{
+				"ok":            true,
+				"email":         "alice@example.com",
+				"session_token": "sess_test",
+			},
+			Assert: func(t *testing.T, _ *http.Request, body []byte) {
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("json.Unmarshal failed: %v", err)
+				}
+				if payload["key"] != "prompted_key" {
+					t.Fatalf("unexpected key payload: %+v", payload)
+				}
+			},
+		},
+	})
+
+	origIsTerminal := isTerminalFD
+	origReadMasked := readMaskedTerminalKeyFD
+	t.Cleanup(func() {
+		isTerminalFD = origIsTerminal
+		readMaskedTerminalKeyFD = origReadMasked
+	})
+
+	isTerminalFD = func(fd int) bool { return fd == 99 }
+	readMaskedTerminalKeyFD = func(fd int, prompt string, sink io.Writer) ([]byte, error) {
+		if fd != 99 {
+			t.Fatalf("fd=%d, want 99", fd)
+		}
+		if prompt != "Auth key: " {
+			t.Fatalf("prompt=%q, want Auth key: ", prompt)
+		}
+		_, _ = sink.Write([]byte("Auth key: ***\n"))
+		return []byte("prompted_key\n"), nil
+	}
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	var stdout, stderr bytes.Buffer
+	code := runWithStdin(
+		[]string{"--base-url", server.server.URL, "--session-file", sessionFile, "auth", "login", "--email", "alice@example.com"},
+		fakeTerminalInput{Reader: strings.NewReader("ignored"), fd: 99},
+		&stdout,
+		&stderr,
+	)
+	if code != 0 {
+		t.Fatalf("auth login code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "Auth key: ***") {
+		t.Fatalf("stderr missing masked prompt: %s", stderr.String())
+	}
+}
+
 func TestAuthLoginRejectsInsecureKeyFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
@@ -227,6 +290,64 @@ func TestAuthLoginRejectsInsecureKeyFlag(t *testing.T) {
 
 func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
+		"listSpaces": {
+			Body: map[string]any{
+				"ok": true,
+				"spaces": []any{
+					map[string]any{
+						"id":                "sp_123",
+						"name":              "alpha",
+						"role":              "admin",
+						"owner_user_id":     1,
+						"created_at":        "2026-01-01T00:00:00Z",
+						"cpu_millis":        4000,
+						"memory_mib":        8192,
+						"disk_mb":           10240,
+						"network_egress_mb": 1024,
+						"llm_tokens_limit":  100000,
+						"llm_tokens_used":   0,
+						"actor_cpu_millis":  4000,
+						"actor_memory_mib":  8192,
+						"actor_disk_mb":     10240,
+						"actor_network_mb":  1024,
+						"actor_llm_tokens":  100000,
+						"byok_bytes_used":   0,
+						"runtime_driver":    "mock",
+						"runtime_state":     "running",
+						"runtime_meta":      "",
+					},
+				},
+			},
+		},
+		"listSSHKeys": {
+			Body: map[string]any{
+				"ok":   true,
+				"keys": []any{},
+			},
+		},
+		"addSSHKey": {
+			Body: map[string]any{
+				"ok": true,
+				"key": map[string]any{
+					"id":          1,
+					"user_id":     1,
+					"user_email":  "alice@example.com",
+					"name":        "id_ed25519",
+					"public_key":  "ssh-ed25519 AAAATEST alice@example.com",
+					"fingerprint": "SHA256:test",
+					"created_at":  "2026-01-01T00:00:00Z",
+				},
+			},
+		},
+		"sshKnownHosts": {
+			Body: map[string]any{
+				"ok":               true,
+				"host":             "cell.example.com",
+				"port":             22,
+				"public_key":       "ssh-ed25519 AAAA_FAKE_HOST_KEY",
+				"known_hosts_line": "cell.example.com ssh-ed25519 AAAA_FAKE_HOST_KEY",
+			},
+		},
 		"issueSSHCert": {
 			Body: map[string]any{
 				"ok":          true,
@@ -275,7 +396,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	t.Setenv("SPACES_SSH_BIN", sshBin)
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--space", "sp_123", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--space", "alpha", "--host", "cell.example.com", "--identity-file", identityFile, "--command", "echo hi"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("ssh connect code=%d stderr=%s", code, stderr.String())
 	}
@@ -299,6 +420,118 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	}
 	if strings.Contains(got, "StrictHostKeyChecking=accept-new") {
 		t.Fatalf("ssh args still allow first-use trust:\n%s", got)
+	}
+	const knownHostsPrefix = "UserKnownHostsFile="
+	index := strings.Index(got, knownHostsPrefix)
+	if index < 0 {
+		t.Fatalf("ssh args missing managed known_hosts path:\n%s", got)
+	}
+	rest := got[index+len(knownHostsPrefix):]
+	end := strings.IndexByte(rest, '\n')
+	if end >= 0 {
+		rest = rest[:end]
+	}
+	knownHostsPath := strings.TrimSpace(rest)
+	knownHostsData, err := os.ReadFile(knownHostsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(knownHostsData), "cell.example.com ssh-ed25519 AAAA_FAKE_HOST_KEY") {
+		t.Fatalf("known_hosts missing fetched host key:\n%s", string(knownHostsData))
+	}
+}
+
+func TestSSHConnectGeneratesManagedIdentityWhenMissing(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"listSSHKeys": {
+			Body: map[string]any{"ok": true, "keys": []any{}},
+		},
+		"addSSHKey": {
+			Body: map[string]any{
+				"ok": true,
+				"key": map[string]any{
+					"id":          1,
+					"user_id":     1,
+					"user_email":  "alice@example.com",
+					"name":        defaultManagedSSHIdentityName,
+					"public_key":  "ssh-ed25519 AAAA_GENERATED spaces@test\n",
+					"fingerprint": "SHA256:generated",
+					"created_at":  "2026-01-01T00:00:00Z",
+				},
+			},
+		},
+		"sshKnownHosts": {
+			Body: map[string]any{
+				"ok":               true,
+				"host":             "cell.example.com",
+				"port":             22,
+				"public_key":       "ssh-ed25519 AAAA_FAKE_HOST_KEY",
+				"known_hosts_line": "cell.example.com ssh-ed25519 AAAA_FAKE_HOST_KEY",
+			},
+		},
+		"issueSSHCert": {
+			Body: map[string]any{
+				"ok":          true,
+				"fingerprint": "SHA256:generated",
+				"principal":   "spaces-room",
+				"expires_at":  "2026-03-30T00:00:00Z",
+				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAA_GENERATED cert\n",
+			},
+		},
+	})
+
+	tmpDir := t.TempDir()
+	originalHomeLookup := lookupUserHomeDir
+	lookupUserHomeDir = func() (string, error) {
+		return tmpDir, nil
+	}
+	t.Cleanup(func() {
+		lookupUserHomeDir = originalHomeLookup
+	})
+
+	sessionFile := filepath.Join(tmpDir, "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	binDir := filepath.Join(tmpDir, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sshKeygen := filepath.Join(binDir, "ssh-keygen")
+	sshKeygenScript := "#!/bin/sh\nset -eu\nout=\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"-f\" ]; then\n    out=\"$2\"\n    shift 2\n    continue\n  fi\n  shift\n done\nprintf 'private\\n' >\"$out\"\nprintf 'ssh-ed25519 AAAA_GENERATED spaces@test\\n' >\"${out}.pub\"\n"
+	if err := os.WriteFile(sshKeygen, []byte(sshKeygenScript), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sshArgsFile := filepath.Join(tmpDir, "ssh-args.txt")
+	sshBin := filepath.Join(binDir, "ssh")
+	if err := os.WriteFile(sshBin, []byte("#!/bin/sh\nprintf '%s\n' \"$@\" >\""+sshArgsFile+"\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--space", "sp_123", "--host", "cell.example.com"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("ssh connect code=%d stderr=%s", code, stderr.String())
+	}
+
+	identityFile := filepath.Join(tmpDir, ".ssh", defaultManagedSSHIdentityName)
+	if _, err := os.Stat(identityFile); err != nil {
+		t.Fatalf("managed identity missing: %v", err)
+	}
+	if _, err := os.Stat(identityFile + ".pub"); err != nil {
+		t.Fatalf("managed public key missing: %v", err)
+	}
+	if _, err := os.Stat(sshCertificateFileForIdentity(identityFile)); err != nil {
+		t.Fatalf("managed cert missing: %v", err)
+	}
+	sshArgs, err := os.ReadFile(sshArgsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(sshArgs), identityFile) {
+		t.Fatalf("ssh args missing managed identity:\n%s", string(sshArgs))
 	}
 }
 
@@ -331,6 +564,69 @@ func TestSSHClientConfigUsesSavedSessionBaseURLForHostResolution(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "HostName spaces.borca.ai") {
 		t.Fatalf("stdout missing session-resolved host:\n%s", stdout.String())
+	}
+}
+
+func TestSSHClientConfigAcceptsExactSpaceName(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"listSpaces": {
+			Body: map[string]any{
+				"ok": true,
+				"spaces": []any{
+					map[string]any{
+						"id":                "sp_123",
+						"name":              "alpha",
+						"role":              "admin",
+						"owner_user_id":     1,
+						"created_at":        "2026-01-01T00:00:00Z",
+						"cpu_millis":        4000,
+						"memory_mib":        8192,
+						"disk_mb":           10240,
+						"network_egress_mb": 1024,
+						"llm_tokens_limit":  100000,
+						"llm_tokens_used":   0,
+						"actor_cpu_millis":  4000,
+						"actor_memory_mib":  8192,
+						"actor_disk_mb":     10240,
+						"actor_network_mb":  1024,
+						"actor_llm_tokens":  100000,
+						"byok_bytes_used":   0,
+						"runtime_driver":    "mock",
+						"runtime_state":     "running",
+						"runtime_meta":      "",
+					},
+				},
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{
+		BaseURL:      server.server.URL,
+		Email:        "alice@example.com",
+		SessionToken: "sess_test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	identityFile := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(identityFile, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--session-file", sessionFile,
+		"ssh", "client-config",
+		"--space", "alpha",
+		"--identity-file", identityFile,
+		"--host", "cell.example.com",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("ssh client-config code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "RemoteCommand sp_123") {
+		t.Fatalf("stdout missing resolved space id:\n%s", stdout.String())
 	}
 }
 
@@ -637,6 +933,26 @@ func TestSSHAddListRemoveKeys(t *testing.T) {
 
 func TestSSHIssueCert(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
+		"listSSHKeys": {
+			Body: map[string]any{
+				"ok":   true,
+				"keys": []any{},
+			},
+		},
+		"addSSHKey": {
+			Body: map[string]any{
+				"ok": true,
+				"key": map[string]any{
+					"id":          1,
+					"user_id":     1,
+					"user_email":  "alice@example.com",
+					"name":        "id_ed25519",
+					"public_key":  "ssh-ed25519 AAAATEST alice@example.com",
+					"fingerprint": "SHA256:test",
+					"created_at":  "2026-01-01T00:00:00Z",
+				},
+			},
+		},
 		"issueSSHCert": {
 			Body: map[string]any{
 				"ok":          true,
@@ -1078,11 +1394,11 @@ func TestContainsHelpFlag(t *testing.T) {
 	}
 }
 
-func TestProtocolFileMatchesManagedAgentsWhenPresent(t *testing.T) {
+func TestProtocolFileMatchesCrakenSpacesWhenPresent(t *testing.T) {
 	localPath := filepath.Join("..", "..", "protocol", "public-api-v1.openapi.yaml")
-	managedPath := filepath.Join("..", "..", "..", "craken-managed-agents", "protocol", "public-api-v1.openapi.yaml")
+	managedPath := filepath.Join("..", "..", "..", "craken-spaces", "protocol", "public-api-v1.openapi.yaml")
 	if _, err := os.Stat(managedPath); os.IsNotExist(err) {
-		t.Skip("sibling craken-managed-agents checkout not present")
+		t.Skip("sibling craken-spaces checkout not present")
 	}
 	localData, err := os.ReadFile(localPath)
 	if err != nil {
@@ -1093,6 +1409,6 @@ func TestProtocolFileMatchesManagedAgentsWhenPresent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(localData, managedData) {
-		t.Fatalf("public API contract is out of sync with sibling managed-agents checkout")
+		t.Fatalf("public API contract is out of sync with sibling craken-spaces checkout")
 	}
 }

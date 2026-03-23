@@ -13,7 +13,7 @@ There are two roles in a Space:
 - **Admin** -- creates and manages Spaces, invites members, controls resource budgets.
 - **Member** -- receives an auth key from an admin, logs in, and uses their Room.
 
-The Space lifecycle is: **create** -> **up** (running) -> **down** (stopped) -> **delete**.
+The Space lifecycle is: **create** (running) -> **down** (stopped) -> **up** (running) -> **delete**.
 
 ```run:shell -> $cli, $tmp
 # Test harness -- in normal use, just run "spaces" directly.
@@ -51,6 +51,7 @@ overridden with flags like `--cpu-millis`, `--memory-mib`, `--llm-tokens-limit`:
 ```run:shell
 $ ${cli} space create --name my-room
 created space sp_1 (my-room)
+space sp_1 is running
 ```
 
 ### List
@@ -59,25 +60,29 @@ View all Spaces you have access to. The full table has columns:
 id, name, role, driver, state, cpu, memory, disk, net, llm_tokens, and
 created_at. Here we show just the key columns:
 
+Commands that take `--space` accept either the exact `sp_...` Space ID or the
+exact Space name when that name is unique among Spaces you can access.
+
 ```run:shell
 $ ${cli} space list | awk '{print $1, $2, $5}'
 id name state
-sp_1 my-room stopped
+sp_1 my-room running
 ```
 
 ### Up and Down
 
-Start a Space to make it available for SSH connections:
+`space up` is still available and idempotent if you want to ensure a stopped
+Space is running before SSH connections:
 
 ```run:shell
-$ ${cli} space up --space sp_1
+$ ${cli} space up --space my-room
 space sp_1 is running
 ```
 
 Stop a Space when you're done to free resources:
 
 ```run:shell
-$ ${cli} space down --space sp_1
+$ ${cli} space down --space my-room
 space sp_1 is stopped
 ```
 
@@ -86,7 +91,7 @@ space sp_1 is stopped
 Permanently remove a Space and all its data:
 
 ```run:shell
-$ ${cli} space delete --space sp_1
+$ ${cli} space delete --space my-room
 deleted space sp_1
 ```
 
@@ -103,16 +108,18 @@ shared with the invitee securely:
 
 ```run:shell
 # Create a Space for member key tests
-${cli} space create --name team-project | awk '/^created space / {print $3}' > ${tmp}/member-space-id
+${cli} space create --name team-project >/dev/null
 ```
 
 ```run:shell
-$ ${cli} space issue-member-auth-key --space $(cat ${tmp}/member-space-id) --email bob@example.com --auth-key-file ${tmp}/bob.authkey | head -2
+$ ${cli} space issue-member-auth-key --space team-project --email bob@example.com --auth-key-file ${tmp}/bob.authkey | head -2
 issued space member auth key 1 for bob@example.com
 auth_key_file=${tmp}/bob.authkey
 ```
 
-The invitee can then log in with `spaces auth login --email bob@example.com --key-file /path/to/received-auth.key`.
+The invitee can then log in with `spaces auth login --email bob@example.com`
+and paste the received auth key when prompted, or use
+`--key-file /path/to/received-auth.key` for non-interactive shells.
 
 ### Listing keys
 
@@ -120,7 +127,7 @@ View all issued keys for a Space, including their status. The full table
 has columns: id, email, status, expires_at, and issued_at. Here we show the key columns:
 
 ```run:shell
-$ ${cli} space member-auth-keys --space $(cat ${tmp}/member-space-id) | awk '{print $1, $2, $3}'
+$ ${cli} space member-auth-keys --space team-project | awk '{print $1, $2, $3}'
 id email status
 1 bob@example.com active
 ```
@@ -141,7 +148,7 @@ error: forbidden
 ```
 
 ```run:shell
-$ ! SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} space issue-member-auth-key --space $(cat ${tmp}/member-space-id) --email eve@example.com --auth-key-file ${tmp}/eve.authkey 2>&1
+$ ! SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} space issue-member-auth-key --space team-project --email eve@example.com --auth-key-file ${tmp}/eve.authkey 2>&1
 error: forbidden
 ```
 
@@ -150,7 +157,7 @@ error: forbidden
 Revoke a key to immediately deny the member's access:
 
 ```run:shell
-$ ${cli} space revoke-member-auth-key --space $(cat ${tmp}/member-space-id) --id 1
+$ ${cli} space revoke-member-auth-key --space team-project --id 1
 revoked space member auth key 1
 ```
 
@@ -161,15 +168,12 @@ typical flow to get into your Room:
 
 ```sh
 # 1. Log in with the auth key you received
-spaces auth login --email you@example.com --key-file /path/to/received-auth.key
+spaces auth login --email you@example.com
 
-# 2. Register your SSH public key (one-time setup)
-spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
-
-# 3. List your Spaces to find the Space ID
+# 2. List your Spaces to find the Space ID or exact name
 spaces space list
 
-# 4. Connect to your Space
+# 3. Connect to your Space
 spaces ssh connect --space sp_xxx
 ```
 

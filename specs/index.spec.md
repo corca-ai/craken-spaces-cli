@@ -68,17 +68,15 @@ receive one when your access is approved.
 
 ```sh
 # 1. Log in
-printf '%s\n' YOUR_AUTH_KEY > ~/spaces.authkey
-chmod 600 ~/spaces.authkey
-spaces auth login --email you@example.com --key-file ~/spaces.authkey
+spaces auth login --email you@example.com
 
 # 2. Create a Space
 spaces space create --name my-project
 # → created space sp_xxx (my-project)
+# → space sp_xxx is running
 
-# 3. Register your SSH key and connect
-spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
-spaces ssh connect --space sp_xxx
+# 3. Connect
+spaces ssh connect --space my-project
 
 # 4. Invite a team member with scoped resource limits
 spaces space issue-member-auth-key --space sp_xxx --email teammate@example.com --auth-key-file ./teammate.authkey
@@ -93,16 +91,13 @@ Room inside that Space.
 
 ```sh
 # 1. Log in with the auth key you received
-spaces auth login --email you@example.com --key-file /path/to/received-auth.key
+spaces auth login --email you@example.com
 
-# 2. Register your SSH key (one-time setup)
-spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
-
-# 3. Find your Space ID
+# 2. Find your Space ID or exact Space name
 spaces space list
 
-# 4. Connect to your Space
-spaces ssh connect --space sp_xxx
+# 3. Connect to your Space
+spaces ssh connect --space my-project
 ```
 
 ## Feature Specifications

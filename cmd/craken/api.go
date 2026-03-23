@@ -19,13 +19,24 @@ type apiClient struct {
 }
 
 func (c apiClient) doJSON(method, path string, requestBody, responseBody any) error {
+	return c.doJSONQuery(method, path, nil, requestBody, responseBody)
+}
+
+func (c apiClient) doJSONQuery(method, path string, query url.Values, requestBody, responseBody any) error {
 	if strings.TrimSpace(c.BaseURL) == "" {
 		return errors.New("base URL is required")
 	}
-	endpoint, err := url.JoinPath(strings.TrimSpace(c.BaseURL), path)
+	baseURL, err := url.Parse(strings.TrimSpace(c.BaseURL))
 	if err != nil {
 		return err
 	}
+	joinedPath := joinAPIPath(baseURL.EscapedPath(), path)
+	baseURL.Path = joinedPath
+	baseURL.RawPath = joinedPath
+	if decodedPath, decodeErr := url.PathUnescape(joinedPath); decodeErr == nil {
+		baseURL.Path = decodedPath
+	}
+	baseURL.RawQuery = query.Encode()
 
 	var body io.Reader
 	if requestBody != nil {
@@ -36,7 +47,7 @@ func (c apiClient) doJSON(method, path string, requestBody, responseBody any) er
 		body = bytes.NewReader(payload)
 	}
 
-	req, err := http.NewRequest(method, endpoint, body)
+	req, err := http.NewRequest(method, baseURL.String(), body)
 	if err != nil {
 		return err
 	}
@@ -70,4 +81,15 @@ func (c apiClient) doJSON(method, path string, requestBody, responseBody any) er
 		return nil
 	}
 	return json.NewDecoder(resp.Body).Decode(responseBody)
+}
+
+func joinAPIPath(basePath, path string) string {
+	switch {
+	case strings.TrimSpace(basePath) == "":
+		return "/" + strings.TrimLeft(path, "/")
+	case strings.TrimSpace(path) == "":
+		return basePath
+	default:
+		return strings.TrimRight(basePath, "/") + "/" + strings.TrimLeft(path, "/")
+	}
 }

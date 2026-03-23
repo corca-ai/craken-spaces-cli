@@ -280,7 +280,7 @@ func TestSpaceCreatePayload(t *testing.T) {
 				"space": map[string]any{
 					"id": "sp_1", "name": "custom-room", "role": "admin",
 					"owner_user_id":  1,
-					"runtime_driver": "docker", "runtime_state": "stopped", "runtime_meta": "",
+					"runtime_driver": "docker", "runtime_state": "running", "runtime_meta": "",
 					"cpu_millis": 2000, "memory_mib": 4096, "disk_mb": 5120,
 					"network_egress_mb": 512, "llm_tokens_used": 0, "llm_tokens_limit": 50000,
 					"actor_cpu_millis": 2000, "actor_memory_mib": 4096, "actor_disk_mb": 5120,
@@ -331,9 +331,16 @@ func TestSpaceCreatePayload(t *testing.T) {
 func TestSpaceUpEscapesSpaceIDInPath(t *testing.T) {
 	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.EscapedPath()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"ok":true,"space":{"id":"sp_1","runtime_state":"running"}}`))
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/spaces":
+			_, _ = w.Write([]byte(`{"ok":true,"spaces":[{"id":"sp_1/../../evil","name":"danger-zone","role":"admin","runtime_driver":"mock","runtime_state":"stopped","cpu_millis":1,"memory_mib":1,"disk_mb":1,"network_egress_mb":1,"llm_tokens_used":0,"llm_tokens_limit":1,"created_at":"2026-01-01T00:00:00Z"}]}`))
+		case r.Method == http.MethodPost:
+			gotPath = r.URL.EscapedPath()
+			_, _ = w.Write([]byte(`{"ok":true,"space":{"id":"sp_1/../../evil","runtime_state":"running"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -343,11 +350,55 @@ func TestSpaceUpEscapesSpaceIDInPath(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "space", "up", "--space", "sp_1/../../evil"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "space", "up", "--space", "danger-zone"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("space up code=%d stderr=%s", code, stderr.String())
 	}
 	if gotPath != "/api/v1/spaces/sp_1%2F..%2F..%2Fevil/up" {
 		t.Fatalf("escaped path = %q", gotPath)
+	}
+}
+
+func TestSpaceDeleteRejectsAmbiguousExactName(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"listSpaces": {
+			Body: map[string]any{
+				"ok": true,
+				"spaces": []any{
+					map[string]any{
+						"id": "sp_1", "name": "alpha", "role": "admin",
+						"owner_user_id": 1, "created_at": "2026-01-01T00:00:00Z",
+						"cpu_millis": 1, "memory_mib": 1, "disk_mb": 1, "network_egress_mb": 1,
+						"llm_tokens_limit": 1, "llm_tokens_used": 0, "actor_cpu_millis": 1,
+						"actor_memory_mib": 1, "actor_disk_mb": 1, "actor_network_mb": 1,
+						"actor_llm_tokens": 1, "byok_bytes_used": 0, "runtime_driver": "mock",
+						"runtime_state": "running", "runtime_meta": "",
+					},
+					map[string]any{
+						"id": "sp_2", "name": "alpha", "role": "admin",
+						"owner_user_id": 1, "created_at": "2026-01-01T00:00:00Z",
+						"cpu_millis": 1, "memory_mib": 1, "disk_mb": 1, "network_egress_mb": 1,
+						"llm_tokens_limit": 1, "llm_tokens_used": 0, "actor_cpu_millis": 1,
+						"actor_memory_mib": 1, "actor_disk_mb": 1, "actor_network_mb": 1,
+						"actor_llm_tokens": 1, "byok_bytes_used": 0, "runtime_driver": "mock",
+						"runtime_state": "running", "runtime_meta": "",
+					},
+				},
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "space", "delete", "--space", "alpha"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code for ambiguous space name")
+	}
+	if !strings.Contains(stderr.String(), "is ambiguous") {
+		t.Fatalf("stderr missing ambiguity error: %s", stderr.String())
 	}
 }

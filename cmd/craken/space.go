@@ -93,21 +93,26 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 		}, &response); err != nil {
 			return printCLIError(stderr, err)
 		}
+		if response.Space.ID != "" && response.Space.RuntimeState != "running" {
+			escapedSpaceID := url.PathEscape(strings.TrimSpace(response.Space.ID))
+			if err := client.doJSON("POST", "/api/v1/spaces/"+escapedSpaceID+"/up", nil, &response); err != nil {
+				return printCLIError(stderr, err)
+			}
+		}
 		fmt.Fprintf(stdout, "created space %s (%s)\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.Name))
+		if strings.TrimSpace(response.Space.RuntimeState) != "" {
+			fmt.Fprintf(stdout, "space %s is %s\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.RuntimeState))
+		}
 		return 0
 
 	case "list":
-		var response struct {
-			OK     bool          `json:"ok"`
-			Error  string        `json:"error"`
-			Spaces []spaceRecord `json:"spaces"`
-		}
-		if err := client.doJSON("GET", "/api/v1/spaces", nil, &response); err != nil {
+		spaces, err := listSpaces(client)
+		if err != nil {
 			return printCLIError(stderr, err)
 		}
-		rows := make([][]string, 0, len(response.Spaces))
-		for i := range response.Spaces {
-			s := &response.Spaces[i]
+		rows := make([][]string, 0, len(spaces))
+		for i := range spaces {
+			s := &spaces[i]
 			rows = append(rows, []string{
 				s.ID,
 				s.Name,
@@ -128,22 +133,26 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 	case "up", "down":
 		fs := flag.NewFlagSet("space "+argv[0], flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		spaceID := fs.String("space", "", "space ID")
+		spaceRef := fs.String("space", "", "space ID or exact space name")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*spaceID) == "" {
+		if strings.TrimSpace(*spaceRef) == "" {
 			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
+		}
+		space, err := resolveSpaceRef(client, *spaceRef)
+		if err != nil {
+			return printCLIError(stderr, err)
 		}
 		action := "up"
 		if argv[0] == "down" {
 			action = "down"
 		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
 		var response struct {
 			OK    bool        `json:"ok"`
 			Error string      `json:"error"`
@@ -158,28 +167,32 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 	case "delete":
 		fs := flag.NewFlagSet("space delete", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		spaceID := fs.String("space", "", "space ID")
+		spaceRef := fs.String("space", "", "space ID or exact space name")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*spaceID) == "" {
+		if strings.TrimSpace(*spaceRef) == "" {
 			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
+		space, err := resolveSpaceRef(client, *spaceRef)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
 		if err := client.doJSON("DELETE", "/api/v1/spaces/"+escapedSpaceID+"/delete", nil, nil); err != nil {
 			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "deleted space %s\n", sanitizeTerminalText(*spaceID))
+		fmt.Fprintf(stdout, "deleted space %s\n", sanitizeTerminalText(space.ID))
 		return 0
 
 	case "issue-member-auth-key":
 		fs := flag.NewFlagSet("space issue-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		spaceID := fs.String("space", "", "space ID")
+		spaceRef := fs.String("space", "", "space ID or exact space name")
 		email := fs.String("email", "", "space member email address")
 		authKeyFile := fs.String("auth-key-file", "", "path to securely write the issued auth key")
 		expiresHours := fs.Int("expires-hours", 24*7, "lifetime in hours")
@@ -194,11 +207,15 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 			}
 			return 2
 		}
-		if strings.TrimSpace(*spaceID) == "" || strings.TrimSpace(*email) == "" || strings.TrimSpace(*authKeyFile) == "" {
+		if strings.TrimSpace(*spaceRef) == "" || strings.TrimSpace(*email) == "" || strings.TrimSpace(*authKeyFile) == "" {
 			fmt.Fprintln(stderr, "error: --space, --email, and --auth-key-file are required")
 			return 2
 		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
+		space, err := resolveSpaceRef(client, *spaceRef)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
 		var response struct {
 			OK      bool                `json:"ok"`
 			Error   string              `json:"error"`
@@ -227,18 +244,22 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 	case "member-auth-keys":
 		fs := flag.NewFlagSet("space member-auth-keys", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		spaceID := fs.String("space", "", "space ID")
+		spaceRef := fs.String("space", "", "space ID or exact space name")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
 				return 0
 			}
 			return 2
 		}
-		if strings.TrimSpace(*spaceID) == "" {
+		if strings.TrimSpace(*spaceRef) == "" {
 			fmt.Fprintln(stderr, "error: --space is required")
 			return 2
 		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
+		space, err := resolveSpaceRef(client, *spaceRef)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
 		var response struct {
 			OK       bool                  `json:"ok"`
 			Error    string                `json:"error"`
@@ -271,7 +292,7 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 	case "revoke-member-auth-key":
 		fs := flag.NewFlagSet("space revoke-member-auth-key", flag.ContinueOnError)
 		fs.SetOutput(stderr)
-		spaceID := fs.String("space", "", "space ID")
+		spaceRef := fs.String("space", "", "space ID or exact space name")
 		authKeyID := fs.Int64("id", 0, "auth key ID")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
@@ -279,11 +300,15 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 			}
 			return 2
 		}
-		if strings.TrimSpace(*spaceID) == "" || *authKeyID <= 0 {
+		if strings.TrimSpace(*spaceRef) == "" || *authKeyID <= 0 {
 			fmt.Fprintln(stderr, "error: --space and --id are required")
 			return 2
 		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(*spaceID))
+		space, err := resolveSpaceRef(client, *spaceRef)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
 		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/spaces/%s/member-auth-keys/%d", escapedSpaceID, *authKeyID), nil, nil); err != nil {
 			return printCLIError(stderr, err)
 		}
@@ -303,9 +328,9 @@ func printSpaceUsage(w io.Writer) {
 Subcommands:
   create                    Create a new Space (--name required)
   list                      List Spaces you have access to
-  up                        Start a Space (--space required)
-  down                      Stop a Space (--space required)
-  delete                    Permanently delete a Space (--space required)
+  up                        Start a Space (--space ID or exact name required)
+  down                      Stop a Space (--space ID or exact name required)
+  delete                    Permanently delete a Space (--space ID or exact name required)
   issue-member-auth-key     Invite a member with a scoped auth key
   member-auth-keys          List issued member auth keys for a Space
   revoke-member-auth-key    Revoke a member auth key

@@ -97,9 +97,18 @@ func TestResolveKnownHostsFile(t *testing.T) {
 		}
 	})
 	t.Run("default empty", func(t *testing.T) {
+		home := t.TempDir()
+		originalHomeLookup := lookupUserHomeDir
+		lookupUserHomeDir = func() (string, error) {
+			return home, nil
+		}
+		t.Cleanup(func() {
+			lookupUserHomeDir = originalHomeLookup
+		})
 		got := resolveKnownHostsFile("")
-		if got != "" {
-			t.Fatalf("got %q, want empty default", got)
+		want := filepath.Join(home, ".ssh", defaultManagedKnownHostsName)
+		if got != want {
+			t.Fatalf("got %q, want %q", got, want)
 		}
 	})
 }

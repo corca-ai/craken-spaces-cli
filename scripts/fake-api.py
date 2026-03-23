@@ -270,6 +270,7 @@ class Handler(BaseHTTPRequestHandler):
                                disk_mb=body.get("disk_mb", 10240),
                                network_egress_mb=body.get("network_egress_mb", 1024),
                                llm_tokens_limit=body.get("llm_tokens_limit", 100000))
+            rec["runtime_state"] = "running"
             spaces[space_id] = rec
             space_owners[space_id] = session["email"]
             space_members.setdefault(space_id, set())
@@ -461,6 +462,26 @@ class Handler(BaseHTTPRequestHandler):
                 "principal": body.get("principal", "spaces-room"),
                 "expires_at": "2026-01-01T00:05:00Z",
                 "certificate": "ssh-ed25519-cert-v01@openssh.com AAAA_FAKE_CERT\n",
+            })
+            return
+
+        if method == "GET" and path == "/api/v1/ssh/known-hosts":
+            session = self._require_auth()
+            if session is None:
+                return
+            host = self.query.get("host", ["spaces.borca.ai"])[0]
+            port = int(self.query.get("port", ["22"])[0])
+            if port == 22:
+                host_pattern = host
+            else:
+                host_pattern = f"[{host}]:{port}"
+            public_key = "ssh-ed25519 AAAA_FAKE_HOST_KEY"
+            self._send_json(200, {
+                "ok": True,
+                "host": host,
+                "port": port,
+                "public_key": public_key,
+                "known_hosts_line": f"{host_pattern} {public_key}",
             })
             return
 

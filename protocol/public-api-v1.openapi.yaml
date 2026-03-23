@@ -6,7 +6,7 @@ info:
     Narrow external HTTP API used by the `spaces` CLI for alpha user and
     space-admin flows.
 servers:
-  - url: https://spaces.borca.ai
+  - url: /
 security:
   - bearerAuth: []
 paths:
@@ -243,6 +243,23 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/ssh/known-hosts:
+    get:
+      operationId: sshKnownHosts
+      parameters:
+        - $ref: '#/components/parameters/SSHKnownHostsHost'
+        - $ref: '#/components/parameters/SSHKnownHostsPort'
+      responses:
+        '200':
+          description: Pinned SSH host trust material
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSHKnownHostsResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -272,6 +289,21 @@ components:
       schema:
         type: string
         minLength: 1
+    SSHKnownHostsHost:
+      name: host
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+    SSHKnownHostsPort:
+      name: port
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 65535
   responses:
     OkResponse:
       description: Generic success
@@ -641,10 +673,8 @@ components:
           type: string
         principal:
           type: string
-          pattern: '^[A-Za-z_][A-Za-z0-9_-]{0,31}$'
         cert_ttl:
           type: string
-          pattern: '^[1-9][0-9]*[smhd]$'
     IssueSSHCertResponse:
       type: object
       additionalProperties: false
@@ -660,4 +690,20 @@ components:
         expires_at:
           type: string
         certificate:
+          type: string
+    SSHKnownHostsResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, host, port, public_key, known_hosts_line]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        host:
+          type: string
+        port:
+          type: integer
+        public_key:
+          type: string
+        known_hosts_line:
           type: string
