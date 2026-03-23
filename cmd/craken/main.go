@@ -101,7 +101,6 @@ func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr 
 	fs := flag.NewFlagSet("auth login", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	email := fs.String("email", "", "user email address")
-	key := fs.String("key", "", "insecure one-time auth key value (disabled; use --key-file or --key-stdin)")
 	keyFile := fs.String("key-file", "", "path to a file containing the one-time auth key")
 	keyStdin := fs.Bool("key-stdin", false, "read the one-time auth key from stdin")
 	if err := fs.Parse(argv); err != nil {
@@ -112,10 +111,6 @@ func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr 
 	}
 	if strings.TrimSpace(*email) == "" {
 		fmt.Fprintln(stderr, "error: --email is required")
-		return 2
-	}
-	if strings.TrimSpace(*key) != "" {
-		fmt.Fprintln(stderr, "error: --key is insecure; use --key-file or --key-stdin")
 		return 2
 	}
 	if strings.TrimSpace(*keyFile) != "" && *keyStdin {

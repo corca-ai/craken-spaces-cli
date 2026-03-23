@@ -270,7 +270,7 @@ func TestAuthLoginPromptsForKeyOnInteractiveTerminal(t *testing.T) {
 	}
 }
 
-func TestAuthLoginRejectsInsecureKeyFlag(t *testing.T) {
+func TestAuthLoginRejectsUnknownKeyFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 
@@ -281,10 +281,10 @@ func TestAuthLoginRejectsInsecureKeyFlag(t *testing.T) {
 		"--key", "test-key",
 	}, &stdout, &stderr)
 	if code == 0 {
-		t.Fatal("expected non-zero exit code when insecure --key is used")
+		t.Fatal("expected non-zero exit code when unknown --key is used")
 	}
-	if !strings.Contains(stderr.String(), "--key is insecure") {
-		t.Fatalf("stderr missing insecure-flag guidance: %s", stderr.String())
+	if !strings.Contains(stderr.String(), "flag provided but not defined: -key") {
+		t.Fatalf("stderr missing unknown-flag message: %s", stderr.String())
 	}
 }
 
