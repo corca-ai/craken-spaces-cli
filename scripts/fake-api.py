@@ -24,6 +24,7 @@ spaces = {}            # id -> record
 member_auth_keys = {}  # (space_id, key_id) -> record
 next_ssh_key_id = 1
 next_member_key_id = 1
+DEFAULT_AUTH_KEY = "test-key"
 
 SPACE_TEMPLATE = {
     "id": "", "name": "", "role": "admin", "owner_user_id": 1,
@@ -42,6 +43,27 @@ def space_record(space_id, name, **overrides):
     rec["name"] = name
     rec.update(overrides)
     return rec
+
+
+def validate_login(email, key):
+    email = str(email or "").strip()
+    key = str(key or "").strip()
+    if not email or not key:
+        return None, "email and key are required"
+    if key == DEFAULT_AUTH_KEY:
+        return True, None
+    for rec in member_auth_keys.values():
+        if key != "wmauth_fake_" + str(rec["id"]):
+            continue
+        if rec["invitee_email"] != email:
+            return None, "invalid auth key"
+        if rec["revoked_at"]:
+            return None, "auth key revoked"
+        if rec["redeemed_at"]:
+            return None, "auth key already redeemed"
+        rec["redeemed_at"] = "2026-01-02T00:00:00Z"
+        return True, None
+    return None, "invalid auth key"
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +127,10 @@ class Handler(BaseHTTPRequestHandler):
         if method == "POST" and path == "/api/v1/auth/login":
             body = self._read_json()
             email = body.get("email", "")
+            ok, error = validate_login(email, body.get("key", ""))
+            if not ok:
+                self._send_json(400, {"ok": False, "error": error})
+                return
             token = "sess_" + email.split("@")[0]
             sessions[token] = email
             self._send_json(200, {

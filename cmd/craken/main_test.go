@@ -235,6 +235,21 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
 			},
+			Assert: func(t *testing.T, req *http.Request, body []byte) {
+				if got := req.Header.Get("Authorization"); got != "Bearer sess_test" {
+					t.Fatalf("Authorization = %q", got)
+				}
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("json.Unmarshal failed: %v", err)
+				}
+				if payload["principal"] != "spaces-room" {
+					t.Fatalf("principal = %#v, want spaces-room", payload["principal"])
+				}
+				if payload["cert_ttl"] != "5m" {
+					t.Fatalf("cert_ttl = %#v, want 5m", payload["cert_ttl"])
+				}
+			},
 		},
 	})
 
@@ -629,6 +644,21 @@ func TestSSHIssueCert(t *testing.T) {
 				"principal":   "spaces-room",
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
+			},
+			Assert: func(t *testing.T, req *http.Request, body []byte) {
+				if got := req.Header.Get("Authorization"); got != "Bearer sess_test" {
+					t.Fatalf("Authorization = %q", got)
+				}
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("json.Unmarshal failed: %v", err)
+				}
+				if payload["principal"] != "spaces-room" {
+					t.Fatalf("principal = %#v, want spaces-room", payload["principal"])
+				}
+				if payload["cert_ttl"] != "5m" {
+					t.Fatalf("cert_ttl = %#v, want 5m", payload["cert_ttl"])
+				}
 			},
 		},
 	})

@@ -9,7 +9,8 @@ timeout: 300000
 
 This document runs the Go unit test suite. The unit tests use contract-validated
 fake servers (backed by the OpenAPI spec in `protocol/public-api-v1.openapi.yaml`)
-to verify CLI behavior without any external dependencies.
+to verify CLI behavior without any external dependencies, including strict
+Bearer auth handling and the SSH certificate request defaults.
 
 ## Repo preflight
 

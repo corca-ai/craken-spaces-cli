@@ -118,8 +118,51 @@ func handleContractRequest(t *testing.T, router routers.Router, operations map[s
 }
 
 func contractAuthenticationFunc(_ context.Context, input *openapi3filter.AuthenticationInput) error {
-	if strings.TrimSpace(input.RequestValidationInput.Request.Header.Get("Authorization")) == "" {
+	auth := input.RequestValidationInput.Request.Header.Get("Authorization")
+	if strings.TrimSpace(auth) == "" {
 		return errors.New("missing Authorization header")
 	}
+	if !strings.HasPrefix(auth, "Bearer ") {
+		return errors.New("Authorization header must use Bearer auth")
+	}
+	if strings.TrimSpace(strings.TrimPrefix(auth, "Bearer ")) == "" {
+		return errors.New("Authorization header must include a bearer token")
+	}
 	return nil
+}
+
+func TestContractAuthenticationFuncRequiresBearerHeader(t *testing.T) {
+	tests := []struct {
+		name    string
+		header  string
+		wantErr string
+	}{
+		{name: "missing header", header: "", wantErr: "missing Authorization header"},
+		{name: "wrong scheme", header: "Token abc", wantErr: "Bearer"},
+		{name: "missing token", header: "Bearer ", wantErr: "bearer token"},
+		{name: "valid", header: "Bearer abc123"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1", http.NoBody)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.header != "" {
+				req.Header.Set("Authorization", tc.header)
+			}
+			err = contractAuthenticationFunc(context.Background(), &openapi3filter.AuthenticationInput{
+				RequestValidationInput: &openapi3filter.RequestValidationInput{Request: req},
+			})
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("contractAuthenticationFunc error = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("contractAuthenticationFunc error = %v, want substring %q", err, tc.wantErr)
+			}
+		})
+	}
 }
