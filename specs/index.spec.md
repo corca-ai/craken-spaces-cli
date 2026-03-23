@@ -67,7 +67,9 @@ receive one when your access is approved.
 
 ```sh
 # 1. Log in
-spaces auth login --email you@example.com --key YOUR_AUTH_KEY
+printf '%s\n' YOUR_AUTH_KEY > ~/spaces.authkey
+chmod 600 ~/spaces.authkey
+spaces auth login --email you@example.com --key-file ~/spaces.authkey
 
 # 2. Create a Room
 spaces room create --name my-project
@@ -78,8 +80,8 @@ spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub
 spaces ssh connect --room sp_xxx
 
 # 4. Invite a team member with scoped resource limits
-spaces room issue-member-auth-key --room sp_xxx --email teammate@example.com
-# → share the printed auth key with your teammate
+spaces room issue-member-auth-key --room sp_xxx --email teammate@example.com --auth-key-file ./teammate.authkey
+# → share the auth key file contents with your teammate securely, then delete the file
 ```
 
 ## Quick Start for Members
@@ -89,7 +91,7 @@ to a Room with delegated resource limits.
 
 ```sh
 # 1. Log in with the auth key you received
-spaces auth login --email you@example.com --key AUTH_KEY_FROM_ADMIN
+spaces auth login --email you@example.com --key-file /path/to/received-auth.key
 
 # 2. Register your SSH key (one-time setup)
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub

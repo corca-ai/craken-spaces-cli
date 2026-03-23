@@ -50,6 +50,9 @@ proxy_log="${tmp_dir}/proxy.log"
 alice_session="${tmp_dir}/alice.session.json"
 bob_session="${tmp_dir}/bob.session.json"
 charlie_session="${tmp_dir}/charlie.session.json"
+alice_auth_key_file="${tmp_dir}/alice.authkey"
+bob_auth_key_file="${tmp_dir}/bob.authkey"
+charlie_auth_key_file="${tmp_dir}/charlie.authkey"
 alice_key="${tmp_dir}/alice_ed25519"
 ca_key="${tmp_dir}/ssh-user-ca"
 spaces_control_bin="${tmp_dir}/spaces-control"
@@ -89,12 +92,14 @@ if [[ -z "${alice_auth_key}" ]]; then
 	printf '%s\n' "${alice_approval}" >&2
 	exit 1
 fi
+printf '%s\n' "${alice_auth_key}" > "${alice_auth_key_file}"
+chmod 600 "${alice_auth_key_file}"
 
 ssh-keygen -q -t ed25519 -N '' -f "${alice_key}"
 
 "${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${alice_session}" auth login \
 	--email alice@example.com \
-	--key "${alice_auth_key}" >/dev/null
+	--key-file "${alice_auth_key_file}" >/dev/null
 
 if [[ "$("${spaces_cli_bin}" --session-file "${alice_session}" whoami)" != "alice@example.com" ]]; then
 	echo "whoami did not return alice@example.com" >&2
@@ -129,10 +134,9 @@ fi
 "${spaces_cli_bin}" --session-file "${alice_session}" room up --room "${room_id}" >/dev/null
 "${spaces_cli_bin}" --session-file "${alice_session}" room down --room "${room_id}" >/dev/null
 
-issue_output="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email bob@example.com)"
-bob_auth_key="$(printf '%s\n' "${issue_output}" | awk -F'=' '/^auth key=/ {print $2}')"
-if [[ -z "${bob_auth_key}" ]]; then
-	echo "failed to parse Bob auth key" >&2
+issue_output="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email bob@example.com --auth-key-file "${bob_auth_key_file}")"
+if [[ ! -f "${bob_auth_key_file}" ]]; then
+	echo "failed to write Bob auth key file" >&2
 	printf '%s\n' "${issue_output}" >&2
 	exit 1
 fi
@@ -142,10 +146,9 @@ if ! "${spaces_cli_bin}" --session-file "${alice_session}" room member-auth-keys
 	exit 1
 fi
 
-charlie_issue="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email charlie@example.com)"
+charlie_issue="$("${spaces_cli_bin}" --session-file "${alice_session}" room issue-member-auth-key --room "${room_id}" --email charlie@example.com --auth-key-file "${charlie_auth_key_file}")"
 charlie_key_id="$(printf '%s\n' "${charlie_issue}" | awk '/^issued room member auth key / {print $6}')"
-charlie_auth_key="$(printf '%s\n' "${charlie_issue}" | awk -F'=' '/^auth key=/ {print $2}')"
-if [[ -z "${charlie_key_id}" || -z "${charlie_auth_key}" ]]; then
+if [[ -z "${charlie_key_id}" || ! -f "${charlie_auth_key_file}" ]]; then
 	echo "failed to parse Charlie auth key metadata" >&2
 	printf '%s\n' "${charlie_issue}" >&2
 	exit 1
@@ -155,14 +158,14 @@ fi
 
 if "${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${charlie_session}" auth login \
 	--email charlie@example.com \
-	--key "${charlie_auth_key}" >/dev/null 2>&1; then
+	--key-file "${charlie_auth_key_file}" >/dev/null 2>&1; then
 	echo "Charlie unexpectedly logged in with a revoked room member auth key" >&2
 	exit 1
 fi
 
 "${spaces_cli_bin}" --base-url "${proxy_base_url}" --session-file "${bob_session}" auth login \
 	--email bob@example.com \
-	--key "${bob_auth_key}" >/dev/null
+	--key-file "${bob_auth_key_file}" >/dev/null
 
 if ! "${spaces_cli_bin}" --session-file "${bob_session}" room list | grep -q "${room_id}"; then
 	echo "Bob room list does not contain ${room_id}" >&2

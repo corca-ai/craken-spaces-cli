@@ -19,6 +19,7 @@ The Room lifecycle is: **create** -> **up** (running) -> **down** (stopped) -> *
 # Test harness -- in normal use, just run "spaces" directly.
 . .specdown/test-env
 tmp=$(mktemp -d)
+printf 'test-key\n' > "$tmp/auth.key"
 cat > "$tmp/spaces" <<WRAPPER
 #!/bin/sh
 export SPACES_BASE_URL=$SPACES_BASE_URL
@@ -26,7 +27,7 @@ export SPACES_SESSION_FILE=$tmp/session.json
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"
-"$tmp/spaces" auth login --email alice@example.com --key test-key >/dev/null
+"$tmp/spaces" auth login --email alice@example.com --key-file "$tmp/auth.key" >/dev/null
 printf '%s\n' "$tmp/spaces" "$tmp"
 ```
 
@@ -104,11 +105,12 @@ ${cli} room create --name team-project >/dev/null
 ```
 
 ```run:shell
-$ ${cli} room issue-member-auth-key --room sp_2 --email bob@example.com | head -1
+$ ${cli} room issue-member-auth-key --room sp_2 --email bob@example.com --auth-key-file ${tmp}/bob.authkey | head -2
 issued room member auth key 1 for bob@example.com
+auth_key_file=${tmp}/bob.authkey
 ```
 
-The invitee can then log in with `spaces auth login --email bob@example.com --key <received-key>`.
+The invitee can then log in with `spaces auth login --email bob@example.com --key-file /path/to/received-auth.key`.
 
 ### Listing keys
 
@@ -137,7 +139,7 @@ typical flow to get into your Room:
 
 ```sh
 # 1. Log in with the auth key you received
-spaces auth login --email you@example.com --key AUTH_KEY_FROM_ADMIN
+spaces auth login --email you@example.com --key-file /path/to/received-auth.key
 
 # 2. Register your SSH public key (one-time setup)
 spaces ssh add-key --name my-laptop --public-key-file ~/.ssh/id_ed25519.pub

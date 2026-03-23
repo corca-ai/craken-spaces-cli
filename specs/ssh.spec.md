@@ -20,6 +20,7 @@ Certificates default to a 5-minute TTL, keeping the attack surface minimal.
 # Test harness -- in normal use, just run "spaces" directly.
 . .specdown/test-env
 tmp=$(mktemp -d)
+printf 'test-key\n' > "$tmp/auth.key"
 cat > "$tmp/spaces" <<WRAPPER
 #!/bin/sh
 export SPACES_BASE_URL=$SPACES_BASE_URL
@@ -27,7 +28,7 @@ export SPACES_SESSION_FILE=$tmp/session.json
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"
-"$tmp/spaces" auth login --email alice@example.com --key test-key >/dev/null
+"$tmp/spaces" auth login --email alice@example.com --key-file "$tmp/auth.key" >/dev/null
 ssh-keygen -q -t ed25519 -N '' -f "$tmp/id_ed25519"
 printf '%s\n' "$tmp/spaces" "$tmp"
 ```
@@ -86,7 +87,7 @@ Behind the scenes, the CLI:
 1. Reads your local private key (defaults to `~/.ssh/id_ed25519`)
 2. Sends the public key to the control plane to get a short-lived certificate
 3. Writes the certificate next to the private key
-4. Runs `ssh` with the certificate, identity file, and Room target
+4. Runs `ssh` with strict host-key checking, the certificate, the identity file, and the Room target
 
 ### OpenSSH config
 
@@ -94,9 +95,9 @@ If you prefer to use `ssh` directly, generate an OpenSSH config block and
 paste it into `~/.ssh/config`:
 
 ```run:shell
-$ ${cli} ssh client-config --room sp_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | head -2
-Host spaces-sp_1
+$ ${cli} ssh client-config --room sp_1 --identity-file ${tmp}/id_ed25519 --host cell.example.com | grep -E 'HostName|StrictHostKeyChecking'
   HostName cell.example.com
+  StrictHostKeyChecking yes
 ```
 
 After adding this to your SSH config, you can connect with just

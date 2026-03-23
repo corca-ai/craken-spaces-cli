@@ -20,7 +20,28 @@ type sshKeyRecord struct {
 	CreatedAt   string `json:"created_at"`
 }
 
-func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
+type sshConnectOptions struct {
+	Port           int
+	KnownHostsFile string
+	CertFile       string
+	IdentityFile   string
+	User           string
+	Host           string
+	Target         string
+}
+
+type sshClientConfig struct {
+	Alias           string
+	Host            string
+	User            string
+	Port            int
+	IdentityFile    string
+	CertificateFile string
+	RoomID          string
+	KnownHostsFile  string
+}
+
+func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
 	if len(argv) == 0 || isHelpWord(argv[0]) {
 		printSSHUsage(stdout)
 		if len(argv) == 0 {
@@ -117,6 +138,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
+		knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
 		alias := fs.String("alias", "", "SSH host alias")
 		if err := fs.Parse(argv[1:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
@@ -143,17 +165,16 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 				return 1
 			}
 		}
-		fmt.Fprintf(stdout, "Host %s\n", *alias)
-		fmt.Fprintf(stdout, "  HostName %s\n", resolvedHost)
-		fmt.Fprintf(stdout, "  User %s\n", *user)
-		fmt.Fprintf(stdout, "  Port %d\n", *port)
-		fmt.Fprintf(stdout, "  RequestTTY yes\n")
-		fmt.Fprintf(stdout, "  IdentitiesOnly yes\n")
-		fmt.Fprintf(stdout, "  IdentityFile %s\n", *identityFile)
-		fmt.Fprintf(stdout, "  CertificateFile %s\n", sshCertificateFileForIdentity(*identityFile))
-		fmt.Fprintf(stdout, "  RemoteCommand %s\n", *roomID)
-		fmt.Fprintf(stdout, "  ServerAliveInterval 30\n")
-		fmt.Fprintf(stdout, "  ServerAliveCountMax 3\n")
+		fmt.Fprint(stdout, renderSSHClientConfig(sshClientConfig{
+			Alias:           *alias,
+			Host:            resolvedHost,
+			User:            *user,
+			Port:            *port,
+			IdentityFile:    *identityFile,
+			CertificateFile: sshCertificateFileForIdentity(*identityFile),
+			RoomID:          *roomID,
+			KnownHostsFile:  resolveKnownHostsFile(*knownHostsFile),
+		}))
 		return 0
 
 	case "connect":
@@ -164,6 +185,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
 		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
 		identityFile := fs.String("identity-file", "", "SSH private key path")
+		knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
 		certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
 		remoteCommand := fs.String("command", "", "optional command to run inside the Room")
 		if err := fs.Parse(argv[1:]); err != nil {
@@ -191,22 +213,21 @@ func cmdSSH(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //noli
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
-		args := []string{
-			"-t",
-			"-p", strconv.Itoa(*port),
-			"-o", "IdentitiesOnly=yes",
-			"-o", "StrictHostKeyChecking=accept-new",
-			"-o", "CertificateFile=" + issued.CertFile,
-			"-i", issued.IdentityFile,
-			fmt.Sprintf("%s@%s", *user, resolvedHost),
-		}
 		target := *roomID
 		if strings.TrimSpace(*remoteCommand) != "" {
 			target = target + " -- " + *remoteCommand
 		}
-		args = append(args, target)
+		args := buildSSHConnectArgs(sshConnectOptions{
+			Port:           *port,
+			KnownHostsFile: resolveKnownHostsFile(*knownHostsFile),
+			CertFile:       issued.CertFile,
+			IdentityFile:   issued.IdentityFile,
+			User:           *user,
+			Host:           resolvedHost,
+			Target:         target,
+		})
 		cmd := exec.Command(sshPath, args...)
-		cmd.Stdin = os.Stdin
+		cmd.Stdin = stdin
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
 		if err := cmd.Run(); err != nil {
@@ -330,6 +351,45 @@ func sshCertificateFileForIdentity(identityFile string) string {
 	return identityFile + "-cert.pub"
 }
 
+func buildSSHConnectArgs(options sshConnectOptions) []string {
+	args := []string{
+		"-t",
+		"-p", strconv.Itoa(options.Port),
+		"-o", "IdentitiesOnly=yes",
+		"-o", "StrictHostKeyChecking=yes",
+	}
+	if strings.TrimSpace(options.KnownHostsFile) != "" {
+		args = append(args, "-o", "UserKnownHostsFile="+options.KnownHostsFile)
+	}
+	args = append(args,
+		"-o", "CertificateFile="+options.CertFile,
+		"-i", options.IdentityFile,
+		fmt.Sprintf("%s@%s", options.User, options.Host),
+		options.Target,
+	)
+	return args
+}
+
+func renderSSHClientConfig(config sshClientConfig) string {
+	var output strings.Builder
+	fmt.Fprintf(&output, "Host %s\n", config.Alias)
+	fmt.Fprintf(&output, "  HostName %s\n", config.Host)
+	fmt.Fprintf(&output, "  User %s\n", config.User)
+	fmt.Fprintf(&output, "  Port %d\n", config.Port)
+	fmt.Fprintf(&output, "  RequestTTY yes\n")
+	fmt.Fprintf(&output, "  IdentitiesOnly yes\n")
+	fmt.Fprintf(&output, "  StrictHostKeyChecking yes\n")
+	if strings.TrimSpace(config.KnownHostsFile) != "" {
+		fmt.Fprintf(&output, "  UserKnownHostsFile %s\n", config.KnownHostsFile)
+	}
+	fmt.Fprintf(&output, "  IdentityFile %s\n", config.IdentityFile)
+	fmt.Fprintf(&output, "  CertificateFile %s\n", config.CertificateFile)
+	fmt.Fprintf(&output, "  RemoteCommand %s\n", config.RoomID)
+	fmt.Fprintf(&output, "  ServerAliveInterval 30\n")
+	fmt.Fprintf(&output, "  ServerAliveCountMax 3\n")
+	return output.String()
+}
+
 func resolvePublicKeyInput(inlineValue, filePath string) (string, error) {
 	if strings.TrimSpace(inlineValue) != "" && strings.TrimSpace(filePath) != "" {
 		return "", errors.New("use only one of --public-key or --public-key-file")
@@ -365,6 +425,13 @@ func resolveSSHHost(explicitHost, baseURL string) (string, error) {
 		return "", errors.New("base URL does not include a host")
 	}
 	return parsed.Hostname(), nil
+}
+
+func resolveKnownHostsFile(explicitPath string) string {
+	if strings.TrimSpace(explicitPath) != "" {
+		return strings.TrimSpace(explicitPath)
+	}
+	return strings.TrimSpace(os.Getenv("SPACES_SSH_KNOWN_HOSTS_FILE"))
 }
 
 func resolveSSHBinary() (string, error) {

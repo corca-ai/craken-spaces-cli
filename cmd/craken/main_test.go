@@ -45,10 +45,12 @@ func TestAuthLoginAndWhoAmI(t *testing.T) {
 		},
 	})
 
-	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "session.json")
+	authKeyFile := writeAuthKeyFile(t, tmpDir, "auth_test")
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--base-url", server.server.URL, "--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key", "auth_test"}, &stdout, &stderr)
+	code := run([]string{"--base-url", server.server.URL, "--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key-file", authKeyFile}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("auth login code=%d stderr=%s", code, stderr.String())
 	}
@@ -76,10 +78,12 @@ func TestAuthLoginUsesEnvironmentBaseURL(t *testing.T) {
 	})
 	t.Setenv("SPACES_BASE_URL", server.server.URL)
 
-	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "session.json")
+	authKeyFile := writeAuthKeyFile(t, tmpDir, "auth_test")
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key", "auth_test"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key-file", authKeyFile}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("auth login code=%d stderr=%s", code, stderr.String())
 	}
@@ -132,18 +136,91 @@ func TestRoomIssueMemberAuthKey(t *testing.T) {
 		},
 	})
 
-	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "session.json")
 	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
 		t.Fatal(err)
 	}
+	authKeyFile := filepath.Join(tmpDir, "issued.authkey")
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "sp_123", "--email", "bob@example.com"}, &stdout, &stderr)
+	code := run([]string{
+		"--session-file", sessionFile,
+		"room", "issue-member-auth-key",
+		"--room", "sp_123",
+		"--email", "bob@example.com",
+		"--auth-key-file", authKeyFile,
+	}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("room issue-member-auth-key code=%d stderr=%s", code, stderr.String())
 	}
-	if got := stdout.String(); !strings.Contains(got, "wmauth_test") {
-		t.Fatalf("stdout missing auth key: %s", got)
+	if got := stdout.String(); strings.Contains(got, "wmauth_test") {
+		t.Fatalf("stdout leaked auth key: %s", got)
+	}
+	issuedKey, err := os.ReadFile(authKeyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(issuedKey)) != "wmauth_test" {
+		t.Fatalf("auth key file contents=%q", string(issuedKey))
+	}
+	info, err := os.Stat(authKeyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("auth key file perms=%#o", info.Mode().Perm())
+	}
+}
+
+func TestAuthLoginReadsKeyFromStdin(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authLogin": {
+			Body: map[string]any{
+				"ok":            true,
+				"email":         "alice@example.com",
+				"session_token": "sess_test",
+			},
+			Assert: func(t *testing.T, _ *http.Request, body []byte) {
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("json.Unmarshal failed: %v", err)
+				}
+				if payload["key"] != "stdin_key" {
+					t.Fatalf("unexpected key payload: %+v", payload)
+				}
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	var stdout, stderr bytes.Buffer
+	code := runWithStdin(
+		[]string{"--base-url", server.server.URL, "--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key-stdin"},
+		strings.NewReader("stdin_key\n"),
+		&stdout,
+		&stderr,
+	)
+	if code != 0 {
+		t.Fatalf("auth login code=%d stderr=%s", code, stderr.String())
+	}
+}
+
+func TestAuthLoginRejectsInsecureKeyFlag(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+
+	code := run([]string{
+		"--session-file", sessionFile,
+		"auth", "login",
+		"--email", "alice@example.com",
+		"--key", "test-key",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when insecure --key is used")
+	}
+	if !strings.Contains(stderr.String(), "--key is insecure") {
+		t.Fatalf("stderr missing insecure-flag guidance: %s", stderr.String())
 	}
 }
 
@@ -199,10 +276,13 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(sshArgs)
-	for _, needle := range []string{"-o", "CertificateFile=" + sshCertificateFileForIdentity(identityFile), "-i", identityFile, "spaces-room@cell.example.com", "sp_123 -- echo hi"} {
+	for _, needle := range []string{"-o", "StrictHostKeyChecking=yes", "CertificateFile=" + sshCertificateFileForIdentity(identityFile), "-i", identityFile, "spaces-room@cell.example.com", "sp_123 -- echo hi"} {
 		if !strings.Contains(got, needle) {
 			t.Fatalf("ssh args missing %q:\n%s", needle, got)
 		}
+	}
+	if strings.Contains(got, "StrictHostKeyChecking=accept-new") {
+		t.Fatalf("ssh args still allow first-use trust:\n%s", got)
 	}
 }
 
@@ -240,19 +320,21 @@ func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
 
 func TestAuthLoginRequiresEmailAndKey(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "session.json")
+	authKeyFile := writeAuthKeyFile(t, tmpDir, "test-key")
 
-	// Missing --key
+	// Missing key source
 	code := run([]string{"--session-file", sessionFile, "auth", "login", "--email", "alice@example.com"}, &stdout, &stderr)
 	if code == 0 {
-		t.Fatal("expected non-zero exit code when --key is missing")
+		t.Fatal("expected non-zero exit code when auth key source is missing")
 	}
 
 	stdout.Reset()
 	stderr.Reset()
 
 	// Missing --email
-	code = run([]string{"--session-file", sessionFile, "auth", "login", "--key", "test-key"}, &stdout, &stderr)
+	code = run([]string{"--session-file", sessionFile, "auth", "login", "--key-file", authKeyFile}, &stdout, &stderr)
 	if code == 0 {
 		t.Fatal("expected non-zero exit code when --email is missing")
 	}
@@ -533,11 +615,13 @@ func TestAuthLogout(t *testing.T) {
 		},
 	})
 
-	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "session.json")
+	authKeyFile := writeAuthKeyFile(t, tmpDir, "auth_test")
 
 	// Login first
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--base-url", server.server.URL, "--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key", "auth_test"}, &stdout, &stderr)
+	code := run([]string{"--base-url", server.server.URL, "--session-file", sessionFile, "auth", "login", "--email", "alice@example.com", "--key-file", authKeyFile}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("auth login code=%d stderr=%s", code, stderr.String())
 	}
@@ -551,6 +635,43 @@ func TestAuthLogout(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "logged out") {
 		t.Fatalf("stdout missing 'logged out': %s", stdout.String())
+	}
+}
+
+func TestAuthLogoutKeepsSessionWhenRemoteLogoutFails(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authLogout": {
+			Status: http.StatusBadRequest,
+			Body:   map[string]any{"ok": false, "error": "logout failed"},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{
+		BaseURL:      server.server.URL,
+		Email:        "alice@example.com",
+		SessionToken: "sess_test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "auth", "logout"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when remote logout fails")
+	}
+	if strings.Contains(stdout.String(), "logged out") {
+		t.Fatalf("stdout incorrectly reported success: %s", stdout.String())
+	}
+	session, err := loadSession(sessionFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session == nil || session.SessionToken != "sess_test" {
+		t.Fatalf("session should have been preserved, got %#v", session)
+	}
+	if !strings.Contains(stderr.String(), "local session kept") {
+		t.Fatalf("stderr missing preservation warning: %s", stderr.String())
 	}
 }
 

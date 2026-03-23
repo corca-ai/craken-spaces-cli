@@ -204,8 +204,9 @@ func TestRoomIssueMemberAuthKeyRequiresFlags(t *testing.T) {
 		args []string
 	}{
 		{"missing both", []string{"--session-file", sessionFile, "room", "issue-member-auth-key"}},
-		{"missing email", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "sp_1"}},
-		{"missing room", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--email", "bob@example.com"}},
+		{"missing email", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "sp_1", "--auth-key-file", filepath.Join(t.TempDir(), "issued.key")}},
+		{"missing room", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--email", "bob@example.com", "--auth-key-file", filepath.Join(t.TempDir(), "issued.key")}},
+		{"missing auth key file", []string{"--session-file", sessionFile, "room", "issue-member-auth-key", "--room", "sp_1", "--email", "bob@example.com"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

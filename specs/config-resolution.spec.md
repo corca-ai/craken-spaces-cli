@@ -28,7 +28,8 @@ with explicit environment variables instead of the wrapper.
 tmp=$(mktemp -d)
 export SPACES_BASE_URL
 export SPACES_SESSION_FILE="$tmp/session.json"
-$SPACES auth login --email alice@example.com --key test-key >/dev/null
+printf 'test-key\n' > "$tmp/auth.key"
+$SPACES auth login --email alice@example.com --key-file "$tmp/auth.key" >/dev/null
 ssh-keygen -q -t ed25519 -N '' -f "$tmp/id_test"
 printf '%s\n' "$SPACES" "$SPACES_BASE_URL" "$tmp"
 ```
@@ -46,7 +47,7 @@ Here we set the env var to a bogus URL and pass the correct URL via the flag;
 login succeeds because the flag takes priority:
 
 ```run:shell
-$ SPACES_BASE_URL=http://wrong:9999 SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url ${url} auth login --email bob@example.com --key test-key | head -1
+$ SPACES_BASE_URL=http://wrong:9999 SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url ${url} auth login --email bob@example.com --key-file ${tmp}/auth.key | head -1
 authenticated as bob@example.com
 ```
 
@@ -80,6 +81,7 @@ SSH-related environment variables override defaults:
 | `SPACES_SSH_HOST` | derived from base URL | Room-entry SSH host |
 | `SPACES_SSH_PORT` | `22` | Room-entry SSH port |
 | `SPACES_SSH_LOGIN_USER` | `spaces-room` | SSH login user |
+| `SPACES_SSH_KNOWN_HOSTS_FILE` | OpenSSH default | known_hosts file used for strict host verification |
 | `SPACES_SSH_BIN` | `ssh` from PATH | local ssh binary |
 
 Setting `SPACES_SSH_LOGIN_USER` overrides the default login user in
@@ -88,4 +90,12 @@ the generated SSH config:
 ```run:shell
 $ SPACES_SSH_LOGIN_USER=custom-user SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep User
   User custom-user
+```
+
+Setting `SPACES_SSH_KNOWN_HOSTS_FILE` adds an explicit `UserKnownHostsFile`
+entry to the generated SSH config:
+
+```run:shell
+$ SPACES_SSH_KNOWN_HOSTS_FILE=/tmp/spaces-known-hosts SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --room sp_1 --identity-file ${tmp}/id_test --host test.example.com | grep UserKnownHostsFile
+  UserKnownHostsFile /tmp/spaces-known-hosts
 ```

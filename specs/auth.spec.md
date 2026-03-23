@@ -12,6 +12,7 @@ commands read that token automatically. Logging out removes the file.
 # Test harness -- in normal use, just run "spaces" directly.
 . .specdown/test-env
 tmp=$(mktemp -d)
+printf 'test-key\n' > "$tmp/auth.key"
 cat > "$tmp/spaces" <<WRAPPER
 #!/bin/sh
 export SPACES_BASE_URL=$SPACES_BASE_URL
@@ -34,7 +35,7 @@ Authenticate with your email and a one-time auth key provided by your
 Space admin:
 
 ```run:shell
-$ ${cli} auth login --email alice@example.com --key test-key
+$ ${cli} auth login --email alice@example.com --key-file ${tmp}/auth.key
 authenticated as alice@example.com
 ...
 ```

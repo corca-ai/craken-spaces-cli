@@ -183,6 +183,7 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 		fs.SetOutput(stderr)
 		roomID := fs.String("room", "", "room ID")
 		email := fs.String("email", "", "room member email address")
+		authKeyFile := fs.String("auth-key-file", "", "path to securely write the issued auth key")
 		expiresHours := fs.Int("expires-hours", 24*7, "lifetime in hours")
 		cpuMillis := fs.Int("cpu-millis", 1000, "delegated CPU ceiling")
 		memoryMiB := fs.Int("memory-mib", 1024, "delegated memory ceiling")
@@ -195,8 +196,8 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			}
 			return 2
 		}
-		if strings.TrimSpace(*roomID) == "" || strings.TrimSpace(*email) == "" {
-			fmt.Fprintln(stderr, "error: --room and --email are required")
+		if strings.TrimSpace(*roomID) == "" || strings.TrimSpace(*email) == "" || strings.TrimSpace(*authKeyFile) == "" {
+			fmt.Fprintln(stderr, "error: --room, --email, and --auth-key-file are required")
 			return 2
 		}
 		var response struct {
@@ -217,8 +218,12 @@ func cmdRoom(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nol
 			fmt.Fprintf(stderr, "error: %v\n", err)
 			return 1
 		}
+		if err := writeSecretFile(*authKeyFile, response.Key); err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
 		fmt.Fprintf(stdout, "issued room member auth key %d for %s\n", response.AuthKey.ID, response.AuthKey.InviteeEmail)
-		fmt.Fprintf(stdout, "auth key=%s\n", response.Key)
+		fmt.Fprintf(stdout, "auth_key_file=%s\n", *authKeyFile)
 		fmt.Fprintf(stdout, "expires_at=%s\n", response.AuthKey.ExpiresAt)
 		return 0
 

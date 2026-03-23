@@ -82,6 +82,28 @@ func TestResolveSSHHost(t *testing.T) {
 	})
 }
 
+func TestResolveKnownHostsFile(t *testing.T) {
+	t.Run("explicit path", func(t *testing.T) {
+		got := resolveKnownHostsFile("/tmp/known_hosts")
+		if got != "/tmp/known_hosts" {
+			t.Fatalf("got %q, want explicit path", got)
+		}
+	})
+	t.Run("env var", func(t *testing.T) {
+		t.Setenv("SPACES_SSH_KNOWN_HOSTS_FILE", "/tmp/env-known_hosts")
+		got := resolveKnownHostsFile("")
+		if got != "/tmp/env-known_hosts" {
+			t.Fatalf("got %q, want env override", got)
+		}
+	})
+	t.Run("default empty", func(t *testing.T) {
+		got := resolveKnownHostsFile("")
+		if got != "" {
+			t.Fatalf("got %q, want empty default", got)
+		}
+	})
+}
+
 func TestParseIntEnv(t *testing.T) {
 	t.Run("valid int", func(t *testing.T) {
 		t.Setenv("TEST_PARSE_INT", "8080")
@@ -227,6 +249,49 @@ func TestResolveSSHBinary(t *testing.T) {
 			t.Fatal("expected non-empty path")
 		}
 	})
+}
+
+func TestBuildSSHConnectArgsUsesStrictHostKeyChecking(t *testing.T) {
+	args := buildSSHConnectArgs(sshConnectOptions{
+		Port:           2222,
+		KnownHostsFile: "/tmp/known_hosts",
+		CertFile:       "/tmp/id_ed25519-cert.pub",
+		IdentityFile:   "/tmp/id_ed25519",
+		User:           "spaces-room",
+		Host:           "cell.example.com",
+		Target:         "sp_123",
+	})
+
+	joined := strings.Join(args, "\n")
+	if !strings.Contains(joined, "StrictHostKeyChecking=yes") {
+		t.Fatalf("args missing strict host key checking:\n%s", joined)
+	}
+	if strings.Contains(joined, "StrictHostKeyChecking=accept-new") {
+		t.Fatalf("args still allow first-use trust:\n%s", joined)
+	}
+	if !strings.Contains(joined, "UserKnownHostsFile=/tmp/known_hosts") {
+		t.Fatalf("args missing known hosts override:\n%s", joined)
+	}
+}
+
+func TestRenderSSHClientConfigUsesStrictHostKeyChecking(t *testing.T) {
+	config := renderSSHClientConfig(sshClientConfig{
+		Alias:           "spaces-sp_123",
+		Host:            "cell.example.com",
+		User:            "spaces-room",
+		Port:            22,
+		IdentityFile:    "/tmp/id_ed25519",
+		CertificateFile: "/tmp/id_ed25519-cert.pub",
+		RoomID:          "sp_123",
+		KnownHostsFile:  "/tmp/known_hosts",
+	})
+
+	if !strings.Contains(config, "  StrictHostKeyChecking yes\n") {
+		t.Fatalf("config missing strict host key checking:\n%s", config)
+	}
+	if !strings.Contains(config, "  UserKnownHostsFile /tmp/known_hosts\n") {
+		t.Fatalf("config missing known hosts override:\n%s", config)
+	}
 }
 
 func TestPrintTable(t *testing.T) {

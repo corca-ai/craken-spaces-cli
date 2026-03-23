@@ -16,6 +16,10 @@ func main() {
 }
 
 func run(argv []string, stdout, stderr io.Writer) int {
+	return runWithStdin(argv, os.Stdin, stdout, stderr)
+}
+
+func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	root := flag.NewFlagSet("spaces", flag.ContinueOnError)
 	root.SetOutput(stderr)
 	root.Usage = func() { printUsage(root.Output()) }
@@ -48,13 +52,13 @@ func run(argv []string, stdout, stderr io.Writer) int {
 		printUsage(stdout)
 		return 0
 	case "auth":
-		return cmdAuth(cfg, args[1:], stdout, stderr)
+		return cmdAuth(cfg, args[1:], stdin, stdout, stderr)
 	case "whoami":
 		return cmdWhoAmI(cfg, stdout, stderr)
 	case "room":
 		return cmdRoom(cfg, args[1:], stdout, stderr)
 	case "ssh":
-		return cmdSSH(cfg, args[1:], stdout, stderr)
+		return cmdSSH(cfg, args[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unknown command %q\n\n", args[0])
 		printUsage(stderr)
@@ -62,7 +66,7 @@ func run(argv []string, stdout, stderr io.Writer) int {
 	}
 }
 
-func cmdAuth(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
+func cmdAuth(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(argv) == 0 || isHelpWord(argv[0]) {
 		printAuthUsage(stdout)
 		if len(argv) == 0 {
@@ -73,68 +77,98 @@ func cmdAuth(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
 
 	switch argv[0] {
 	case "login":
-		fs := flag.NewFlagSet("auth login", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		email := fs.String("email", "", "user email address")
-		key := fs.String("key", "", "one-time auth key")
-		if err := fs.Parse(argv[1:]); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return 0
-			}
-			return 2
-		}
-		if strings.TrimSpace(*email) == "" || strings.TrimSpace(*key) == "" {
-			fmt.Fprintln(stderr, "error: --email and --key are required")
-			return 2
-		}
-		baseURL, err := cfg.requireBaseURL()
-		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 2
-		}
-		client := apiClient{BaseURL: baseURL}
-		var response struct {
-			OK           bool   `json:"ok"`
-			Error        string `json:"error"`
-			Email        string `json:"email"`
-			SessionToken string `json:"session_token"`
-		}
-		if err := client.doJSON("POST", "/api/v1/auth/login", map[string]any{
-			"email": *email,
-			"key":   *key,
-		}, &response); err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
-		}
-		if err := saveSession(cfg.SessionFile, localSession{
-			BaseURL:      baseURL,
-			Email:        response.Email,
-			SessionToken: response.SessionToken,
-		}); err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
-		}
-		fmt.Fprintf(stdout, "authenticated as %s\n", response.Email)
-		fmt.Fprintf(stdout, "session saved to %s\n", cfg.SessionFile)
-		return 0
+		return cmdAuthLogin(cfg, argv[1:], stdin, stdout, stderr)
 
 	case "logout":
-		session, _ := loadSession(cfg.SessionFile)
-		if session != nil && session.SessionToken != "" && session.BaseURL != "" {
-			client := apiClient{BaseURL: session.BaseURL, SessionToken: session.SessionToken}
-			_ = client.doJSON("POST", "/api/v1/auth/logout", nil, nil)
-		}
-		if err := clearSession(cfg.SessionFile); err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
-		}
-		fmt.Fprintf(stdout, "logged out; session removed from %s\n", cfg.SessionFile)
-		return 0
+		return cmdAuthLogout(cfg, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unknown auth subcommand %q\n\n", argv[0])
 		printAuthUsage(stderr)
 		return 2
 	}
+}
+
+func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("auth login", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	email := fs.String("email", "", "user email address")
+	key := fs.String("key", "", "insecure one-time auth key value (disabled; use --key-file or --key-stdin)")
+	keyFile := fs.String("key-file", "", "path to a file containing the one-time auth key")
+	keyStdin := fs.Bool("key-stdin", false, "read the one-time auth key from stdin")
+	if err := fs.Parse(argv); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	if strings.TrimSpace(*email) == "" {
+		fmt.Fprintln(stderr, "error: --email is required")
+		return 2
+	}
+	if strings.TrimSpace(*key) != "" {
+		fmt.Fprintln(stderr, "error: --key is insecure; use --key-file or --key-stdin")
+		return 2
+	}
+	if (strings.TrimSpace(*keyFile) == "" && !*keyStdin) || (strings.TrimSpace(*keyFile) != "" && *keyStdin) {
+		fmt.Fprintln(stderr, "error: use exactly one of --key-file or --key-stdin")
+		return 2
+	}
+	authKey, err := resolveAuthKey(*keyFile, *keyStdin, stdin)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	baseURL, err := cfg.requireBaseURL()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 2
+	}
+	client := apiClient{BaseURL: baseURL}
+	var response struct {
+		OK           bool   `json:"ok"`
+		Error        string `json:"error"`
+		Email        string `json:"email"`
+		SessionToken string `json:"session_token"`
+	}
+	if err := client.doJSON("POST", "/api/v1/auth/login", map[string]any{
+		"email": *email,
+		"key":   authKey,
+	}, &response); err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	if err := saveSession(cfg.SessionFile, localSession{
+		BaseURL:      baseURL,
+		Email:        response.Email,
+		SessionToken: response.SessionToken,
+	}); err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "authenticated as %s\n", response.Email)
+	fmt.Fprintf(stdout, "session saved to %s\n", cfg.SessionFile)
+	return 0
+}
+
+func cmdAuthLogout(cfg cliConfig, stdout, stderr io.Writer) int {
+	session, err := loadSession(cfg.SessionFile)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	if session != nil && session.SessionToken != "" && session.BaseURL != "" {
+		client := apiClient{BaseURL: session.BaseURL, SessionToken: session.SessionToken}
+		if err := client.doJSON("POST", "/api/v1/auth/logout", nil, nil); err != nil {
+			fmt.Fprintf(stderr, "error: remote logout failed: %v; local session kept in %s\n", err, cfg.SessionFile)
+			return 1
+		}
+	}
+	if err := clearSession(cfg.SessionFile); err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "logged out; session removed from %s\n", cfg.SessionFile)
+	return 0
 }
 
 func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
@@ -182,19 +216,20 @@ Commands:
   version                        Print version
   help                           Show this help
 
-Environment:
-  SPACES_BASE_URL       Override default control-plane URL (https://spaces.borca.ai)
-  SPACES_SESSION_FILE   Override local session file path
-  SPACES_SSH_HOST       Override SSH host for Room entry
-  SPACES_SSH_PORT       Override SSH port (default: 22)
-  SPACES_SSH_LOGIN_USER Override SSH login user (default: spaces-room)
-  SPACES_SSH_BIN        Override ssh binary path
+	Environment:
+	  SPACES_BASE_URL       Override default control-plane URL (https://spaces.borca.ai)
+	  SPACES_SESSION_FILE   Override local session file path
+	  SPACES_SSH_HOST       Override SSH host for Room entry
+	  SPACES_SSH_PORT       Override SSH port (default: 22)
+	  SPACES_SSH_LOGIN_USER Override SSH login user (default: spaces-room)
+	  SPACES_SSH_KNOWN_HOSTS_FILE Override known_hosts file used for SSH host verification
+	  SPACES_SSH_BIN        Override ssh binary path
 `)
 }
 
 func printAuthUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  spaces auth login --email EMAIL --key AUTH_KEY")
+	fmt.Fprintln(w, "  spaces auth login --email EMAIL (--key-file PATH | --key-stdin)")
 	fmt.Fprintln(w, "  spaces auth logout")
 }
 
