@@ -280,7 +280,7 @@ func TestSpaceCreatePayload(t *testing.T) {
 				"space": map[string]any{
 					"id": "sp_1", "name": "custom-room", "role": "admin",
 					"owner_user_id":  1,
-					"runtime_driver": "docker", "runtime_state": "running", "runtime_meta": "",
+					"runtime_state": "running", "runtime_meta": "",
 					"cpu_millis": 2000, "memory_mib": 4096, "disk_mb": 5120,
 					"network_egress_mb": 512, "llm_tokens_used": 0, "llm_tokens_limit": 50000,
 					"actor_cpu_millis": 2000, "actor_memory_mib": 4096, "actor_disk_mb": 5120,
@@ -333,7 +333,7 @@ func TestSpaceUpEscapesSpaceIDInPath(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/spaces":
-			_, _ = w.Write([]byte(`{"ok":true,"spaces":[{"id":"sp_1/../../evil","name":"danger-zone","role":"admin","runtime_driver":"mock","runtime_state":"stopped","cpu_millis":1,"memory_mib":1,"disk_mb":1,"network_egress_mb":1,"llm_tokens_used":0,"llm_tokens_limit":1,"created_at":"2026-01-01T00:00:00Z"}]}`))
+			_, _ = w.Write([]byte(`{"ok":true,"spaces":[{"id":"sp_1/../../evil","name":"danger-zone","role":"admin","runtime_state":"stopped","cpu_millis":1,"memory_mib":1,"disk_mb":1,"network_egress_mb":1,"llm_tokens_used":0,"llm_tokens_limit":1,"created_at":"2026-01-01T00:00:00Z"}]}`))
 		case r.Method == http.MethodPost:
 			gotPath = r.URL.EscapedPath()
 			_, _ = w.Write([]byte(`{"ok":true,"space":{"id":"sp_1/../../evil","runtime_state":"running"}}`))
@@ -370,7 +370,7 @@ func TestSpaceDeleteRejectsAmbiguousExactName(t *testing.T) {
 						"cpu_millis": 1, "memory_mib": 1, "disk_mb": 1, "network_egress_mb": 1,
 						"llm_tokens_limit": 1, "llm_tokens_used": 0, "actor_cpu_millis": 1,
 						"actor_memory_mib": 1, "actor_disk_mb": 1, "actor_network_mb": 1,
-						"actor_llm_tokens": 1, "byok_bytes_used": 0, "runtime_driver": "mock",
+						"actor_llm_tokens": 1, "byok_bytes_used": 0,
 						"runtime_state": "running", "runtime_meta": "",
 					},
 					map[string]any{
@@ -379,7 +379,7 @@ func TestSpaceDeleteRejectsAmbiguousExactName(t *testing.T) {
 						"cpu_millis": 1, "memory_mib": 1, "disk_mb": 1, "network_egress_mb": 1,
 						"llm_tokens_limit": 1, "llm_tokens_used": 0, "actor_cpu_millis": 1,
 						"actor_memory_mib": 1, "actor_disk_mb": 1, "actor_network_mb": 1,
-						"actor_llm_tokens": 1, "byok_bytes_used": 0, "runtime_driver": "mock",
+						"actor_llm_tokens": 1, "byok_bytes_used": 0,
 						"runtime_state": "running", "runtime_meta": "",
 					},
 				},
