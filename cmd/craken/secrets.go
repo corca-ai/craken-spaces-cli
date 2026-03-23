@@ -85,7 +85,7 @@ func defaultReadMaskedTerminalKeyFD(fd int, prompt string, sink io.Writer) ([]by
 	for {
 		n, err := input.Read(buffer)
 		if err != nil {
-			_, _ = fmt.Fprintln(sink)
+			_, _ = io.WriteString(sink, "\r\n")
 			return nil, err
 		}
 		if n == 0 {
@@ -93,10 +93,10 @@ func defaultReadMaskedTerminalKeyFD(fd int, prompt string, sink io.Writer) ([]by
 		}
 		switch buffer[0] {
 		case '\r', '\n':
-			_, _ = fmt.Fprintln(sink)
+			_, _ = io.WriteString(sink, "\r\n")
 			return payload.Bytes(), nil
 		case 0x03:
-			_, _ = fmt.Fprintln(sink)
+			_, _ = io.WriteString(sink, "\r\n")
 			return nil, errors.New("auth key entry interrupted")
 		case 0x08, 0x7f:
 			if payload.Len() == 0 {
