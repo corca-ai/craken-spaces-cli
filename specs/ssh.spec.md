@@ -5,16 +5,17 @@ type: spec
 # SSH Key and Certificate Management
 
 The CLI manages SSH public keys and short-lived certificates for secure Room
-entry. The typical flow is:
+entry. For both **Space admins** and **Space members**, the default command is
+`spaces ssh connect --space ...`. The typical flow is:
 
 1. **Connect** to a Space with `ssh connect`.
 2. The CLI ensures a dedicated local SSH key exists, registers that public key
    if needed, fetches pinned host trust material, issues a short-lived
    certificate, and invokes `ssh`.
 
-For advanced use, you can still register keys manually with `ssh add-key`,
-issue certificates manually with `ssh issue-cert`, or generate an OpenSSH
-config block with `ssh client-config`.
+Most users should stop there. For advanced use, you can still register keys
+manually with `ssh add-key`, issue certificates manually with `ssh issue-cert`,
+or generate an OpenSSH config block with `ssh client-config`.
 
 Certificates default to a 5-minute TTL, keeping the attack surface minimal.
 
@@ -95,6 +96,10 @@ Behind the scenes, the CLI:
 4. Sends the public key to the control plane to get a short-lived certificate
 5. Writes the certificate next to the private key
 6. Runs `ssh` with strict host-key checking, the certificate, the identity file, and the Space target
+
+That means a member who has already run `spaces auth login` usually does not
+need to think about `ssh add-key`, `ssh list-keys`, `ssh remove-key`, or
+`ssh issue-cert` at all.
 
 ### OpenSSH config
 

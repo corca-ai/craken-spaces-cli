@@ -43,8 +43,12 @@ Craken Spaces is currently invite-only.
 ## What is this CLI?
 
 `spaces` is the command-line client for Craken Spaces. It authenticates
-against the control-plane API, manages Spaces and SSH keys, and uses
-short-lived certificates for secure Room entry.
+against the control-plane API, manages Spaces, and uses local `ssh` for
+final Room entry. Most users only need three commands:
+
+- `spaces auth login` -- log in and paste the auth key when prompted
+- `spaces space list` -- see which Spaces you can access
+- `spaces ssh connect --space ...` -- enter your Room; the CLI handles SSH key creation, registration, host trust material, and short-lived cert issuance automatically
 
 ## Install
 
@@ -66,21 +70,32 @@ budgets. To get your admin auth key,
 [join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) and you will
 receive one when your access is approved.
 
+If you are a **Space admin**, your normal workflow is:
+
+1. Log in with your admin auth key
+2. Create a Space for your team
+3. Connect to that Space yourself
+4. Issue member auth keys for teammates
+5. Stop or delete the Space when you are done
+
 ```sh
-# 1. Log in
+# 1. Log in and paste your auth key when prompted
 spaces auth login --email you@example.com
 
 # 2. Create a Space
 spaces space create --name my-project
 # → created space sp_xxx (my-project)
-# → space sp_xxx is running
+# → space sp_xxx is running  (create auto-starts the Space)
 
 # 3. Connect
 spaces ssh connect --space my-project
 
 # 4. Invite a team member with scoped resource limits
-spaces space issue-member-auth-key --space sp_xxx --email teammate@example.com --auth-key-file ./teammate.authkey
+spaces space issue-member-auth-key --space my-project --email teammate@example.com --auth-key-file ./teammate.authkey
 # → share the auth key file contents with your teammate securely, then delete the file
+
+# 5. Stop the Space later if you want to release runtime resources
+spaces space down --space my-project
 ```
 
 ## Quick Start for Members
@@ -89,11 +104,20 @@ Members receive an auth key from a Space admin. That key grants access
 to a Space with delegated resource limits, and SSH lands them in their
 Room inside that Space.
 
+If you are a **Space member**, your normal workflow is:
+
+1. Log in with the auth key you received
+2. Check which Spaces you can access
+3. Connect to your own Room inside that Space
+
+Members can use `space list` and `ssh connect`, but they cannot create
+Spaces or issue member auth keys.
+
 ```sh
-# 1. Log in with the auth key you received
+# 1. Log in and paste the auth key you received
 spaces auth login --email you@example.com
 
-# 2. Find your Space ID or exact Space name
+# 2. Find your Space ID or exact Space name if you do not already know it
 spaces space list
 
 # 3. Connect to your Space
@@ -104,7 +128,7 @@ spaces ssh connect --space my-project
 
 - [Authentication](auth.spec.md) -- login, logout, whoami
 - [Space Lifecycle](space.spec.md) -- admin space management, member invitations, member onboarding
-- [SSH Keys and Certificates](ssh.spec.md) -- add-key, list-keys, remove-key, issue-cert, connect, client-config
+- [SSH Keys and Certificates](ssh.spec.md) -- automatic `ssh connect` flow plus advanced key/cert commands
 
 ## Reference
 
