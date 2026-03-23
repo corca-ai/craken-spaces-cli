@@ -296,8 +296,8 @@ func TestSpaceCreatePayload(t *testing.T) {
 				if payload["name"] != "custom-room" {
 					t.Fatalf("expected name=custom-room, got %v", payload["name"])
 				}
-				if payload["runtime_driver"] != "docker" {
-					t.Fatalf("expected runtime_driver=docker, got %v", payload["runtime_driver"])
+				if _, ok := payload["runtime_driver"]; ok {
+					t.Fatal("expected runtime_driver to be absent from request payload")
 				}
 			},
 		},
@@ -313,7 +313,6 @@ func TestSpaceCreatePayload(t *testing.T) {
 		"--session-file", sessionFile,
 		"space", "create",
 		"--name", "custom-room",
-		"--runtime-driver", "docker",
 		"--cpu-millis", "2000",
 		"--memory-mib", "4096",
 		"--disk-mb", "5120",

@@ -40,7 +40,7 @@ SPACE_TEMPLATE = {
     "network_egress_mb": 1024, "llm_tokens_limit": 100000, "llm_tokens_used": 0,
     "actor_cpu_millis": 0, "actor_memory_mib": 0, "actor_disk_mb": 0,
     "actor_network_mb": 0, "actor_llm_tokens": 0, "byok_bytes_used": 0,
-    "runtime_driver": "mock", "runtime_state": "stopped", "runtime_meta": "",
+    "runtime_state": "stopped", "runtime_meta": "",
 }
 
 
@@ -264,7 +264,6 @@ class Handler(BaseHTTPRequestHandler):
             body = self._read_json()
             space_id = "sp_" + str(len(spaces) + 1)
             rec = space_record(space_id, body.get("name", ""),
-                               runtime_driver=body.get("runtime_driver", "mock"),
                                cpu_millis=body.get("cpu_millis", 4000),
                                memory_mib=body.get("memory_mib", 8192),
                                disk_mb=body.get("disk_mb", 10240),

@@ -14,7 +14,6 @@ type spaceRecord struct {
 	ID              string `json:"id"`
 	Name            string `json:"name"`
 	Role            string `json:"role"`
-	RuntimeDriver   string `json:"runtime_driver"`
 	RuntimeState    string `json:"runtime_state"`
 	CPUMillis       int    `json:"cpu_millis"`
 	MemoryMiB       int    `json:"memory_mib"`
@@ -61,7 +60,6 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 		fs := flag.NewFlagSet("space create", flag.ContinueOnError)
 		fs.SetOutput(stderr)
 		name := fs.String("name", "", "space name")
-		runtimeDriver := fs.String("runtime-driver", "mock", "runtime driver")
 		cpuMillis := fs.Int("cpu-millis", 4000, "space CPU ceiling in millicores")
 		memoryMiB := fs.Int("memory-mib", 8192, "space memory ceiling in MiB")
 		diskMB := fs.Int("disk-mb", 10240, "space writable disk ceiling in MB")
@@ -84,7 +82,6 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 		}
 		if err := client.doJSON("POST", "/api/v1/spaces", map[string]any{
 			"name":              *name,
-			"runtime_driver":    *runtimeDriver,
 			"cpu_millis":        *cpuMillis,
 			"memory_mib":        *memoryMiB,
 			"disk_mb":           *diskMB,
@@ -117,7 +114,6 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 				s.ID,
 				s.Name,
 				s.Role,
-				s.RuntimeDriver,
 				s.RuntimeState,
 				strconv.Itoa(s.CPUMillis),
 				strconv.Itoa(s.MemoryMiB),
@@ -127,7 +123,7 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 				s.CreatedAt,
 			})
 		}
-		printTable(stdout, []string{"id", "name", "role", "driver", "state", "cpu", "memory", "disk", "net", "llm_tokens", "created_at"}, rows)
+		printTable(stdout, []string{"id", "name", "role", "state", "cpu", "memory", "disk", "net", "llm_tokens", "created_at"}, rows)
 		return 0
 
 	case "up", "down":

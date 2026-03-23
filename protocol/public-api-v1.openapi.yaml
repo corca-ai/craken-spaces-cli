@@ -405,7 +405,6 @@ components:
         - actor_network_mb
         - actor_llm_tokens
         - byok_bytes_used
-        - runtime_driver
         - runtime_state
         - runtime_meta
       properties:
@@ -445,8 +444,6 @@ components:
         byok_bytes_used:
           type: integer
           format: int64
-        runtime_driver:
-          type: string
         runtime_state:
           type: string
         runtime_meta:
@@ -478,7 +475,6 @@ components:
       additionalProperties: false
       required:
         - name
-        - runtime_driver
         - cpu_millis
         - memory_mib
         - disk_mb
@@ -486,8 +482,6 @@ components:
         - llm_tokens_limit
       properties:
         name:
-          type: string
-        runtime_driver:
           type: string
         cpu_millis:
           type: integer

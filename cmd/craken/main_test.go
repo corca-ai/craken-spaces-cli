@@ -312,7 +312,6 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
 						"byok_bytes_used":   0,
-						"runtime_driver":    "mock",
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -591,7 +590,6 @@ func TestSSHClientConfigAcceptsExactSpaceName(t *testing.T) {
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
 						"byok_bytes_used":   0,
-						"runtime_driver":    "mock",
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -752,7 +750,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 	spaceBody := map[string]any{
 		"id": "sp_1", "name": "test-room", "role": "admin",
 		"owner_user_id":  1,
-		"runtime_driver": "mock", "runtime_state": "stopped", "runtime_meta": "",
+		"runtime_state": "stopped", "runtime_meta": "",
 		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 		"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
@@ -775,7 +773,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 				"space": map[string]any{
 					"id": "sp_1", "name": "test-room", "role": "admin",
 					"owner_user_id":  1,
-					"runtime_driver": "mock", "runtime_state": "running", "runtime_meta": "",
+					"runtime_state": "running", "runtime_meta": "",
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
@@ -790,7 +788,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 				"space": map[string]any{
 					"id": "sp_1", "name": "test-room", "role": "admin",
 					"owner_user_id":  1,
-					"runtime_driver": "mock", "runtime_state": "stopped", "runtime_meta": "",
+					"runtime_state": "stopped", "runtime_meta": "",
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
