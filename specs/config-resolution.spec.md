@@ -22,6 +22,10 @@ The session file path is resolved similarly:
 3. **`SPACES_CONFIG_DIR`** / `session.json`
 4. **Default** `~/.config/spaces/session.json`
 
+If none of those sources are available because the home directory cannot be
+resolved, the CLI returns an error instead of writing a session file into the
+current working directory.
+
 This spec exercises the precedence rules directly, so it uses the raw binary
 with explicit environment variables instead of the wrapper.
 

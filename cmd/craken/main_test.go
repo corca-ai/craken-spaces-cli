@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -751,6 +752,25 @@ func TestVersionCommand(t *testing.T) {
 }
 
 func TestHelpCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"help"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("help code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Usage:") {
+		t.Fatalf("stdout missing usage text: %s", stdout.String())
+	}
+}
+
+func TestHelpCommandDoesNotRequireDefaultSessionPath(t *testing.T) {
+	original := lookupUserHomeDir
+	lookupUserHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+	t.Cleanup(func() {
+		lookupUserHomeDir = original
+	})
+
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"help"}, &stdout, &stderr)
 	if code != 0 {

@@ -307,7 +307,7 @@ func issueSSHCert(client apiClient, identityFile, principal, certTTL string) (is
 		return issuedSSHCert{}, err
 	}
 	certFile := sshCertificateFileForIdentity(identityFile)
-	if err := os.WriteFile(certFile, []byte(response.Certificate), 0o600); err != nil {
+	if err := writePrivateFile(certFile, []byte(response.Certificate)); err != nil {
 		return issuedSSHCert{}, err
 	}
 	return issuedSSHCert{

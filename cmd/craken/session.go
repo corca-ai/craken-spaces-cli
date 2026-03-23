@@ -24,18 +24,20 @@ type cliConfig struct {
 
 const defaultPublicBaseURL = "https://spaces.borca.ai"
 
-func defaultSessionPath() string {
+var lookupUserHomeDir = os.UserHomeDir
+
+func defaultSessionPath() (string, error) {
 	if path := os.Getenv("SPACES_SESSION_FILE"); strings.TrimSpace(path) != "" {
-		return path
+		return path, nil
 	}
 	if base := os.Getenv("SPACES_CONFIG_DIR"); base != "" {
-		return filepath.Join(base, "session.json")
+		return filepath.Join(base, "session.json"), nil
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ".spaces-session.json"
+	home, err := lookupUserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		return "", errors.New("could not resolve a default session file path; set SPACES_SESSION_FILE, SPACES_CONFIG_DIR, or --session-file")
 	}
-	return filepath.Join(home, ".config", "spaces", "session.json")
+	return filepath.Join(home, ".config", "spaces", "session.json"), nil
 }
 
 func loadSession(path string) (*localSession, error) {
@@ -55,14 +57,11 @@ func loadSession(path string) (*localSession, error) {
 }
 
 func saveSession(path string, session localSession) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
 	payload, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, payload, 0o600)
+	return writePrivateFile(path, payload)
 }
 
 func clearSession(path string) error {

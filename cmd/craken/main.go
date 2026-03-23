@@ -20,12 +20,14 @@ func run(argv []string, stdout, stderr io.Writer) int {
 }
 
 func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	defaultSessionFile, defaultSessionErr := defaultSessionPath()
+
 	root := flag.NewFlagSet("spaces", flag.ContinueOnError)
 	root.SetOutput(stderr)
 	root.Usage = func() { printUsage(root.Output()) }
 
 	baseURL := root.String("base-url", "", "Spaces public control-plane base URL (default: https://spaces.borca.ai; http only for localhost/loopback)")
-	sessionFile := root.String("session-file", defaultSessionPath(), "path to the local session file")
+	sessionFile := root.String("session-file", defaultSessionFile, "path to the local session file")
 	if err := root.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -51,6 +53,13 @@ func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int 
 	case "help":
 		printUsage(stdout)
 		return 0
+	}
+	if strings.TrimSpace(cfg.SessionFile) == "" && defaultSessionErr != nil {
+		fmt.Fprintf(stderr, "error: %v\n", defaultSessionErr)
+		return 1
+	}
+
+	switch args[0] {
 	case "auth":
 		return cmdAuth(cfg, args[1:], stdin, stdout, stderr)
 	case "whoami":
@@ -219,6 +228,7 @@ Commands:
 	Environment:
 	  SPACES_BASE_URL       Override default control-plane URL (default: https://spaces.borca.ai; http only for localhost/loopback)
 	  SPACES_SESSION_FILE   Override local session file path
+	  SPACES_CONFIG_DIR     Override the config directory used for the default session path
 	  SPACES_SSH_HOST       Override SSH host for Room entry
 	  SPACES_SSH_PORT       Override SSH port (default: 22)
 	  SPACES_SSH_LOGIN_USER Override SSH login user (default: spaces-room)

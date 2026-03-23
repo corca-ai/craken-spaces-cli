@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -47,8 +48,52 @@ func writeSecretFile(path, value string) error {
 	if value == "" {
 		return errors.New("secret value is empty")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	return writePrivateFile(path, []byte(value+"\n"))
+}
+
+func writePrivateFile(path string, data []byte) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return errors.New("file path is required")
+	}
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(value+"\n"), 0o600)
+	tmpFile, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmpFile.Name()
+	cleanup := true
+	defer func() {
+		_ = tmpFile.Close()
+		if cleanup {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if err := tmpFile.Chmod(0o600); err != nil {
+		return err
+	}
+	if _, err := tmpFile.Write(data); err != nil {
+		return err
+	}
+	if err := tmpFile.Sync(); err != nil {
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+	if info, err := os.Lstat(path); err == nil {
+		if info.IsDir() {
+			return fmt.Errorf("%s is a directory", path)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
 }

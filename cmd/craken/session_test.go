@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +47,10 @@ func TestResolveAuthenticatedBaseURLPrefersSavedSessionOverEnvironment(t *testin
 func TestDefaultSessionPathPrefersEnvVar(t *testing.T) {
 	t.Setenv("SPACES_SESSION_FILE", "/tmp/custom-session.json")
 
-	got := defaultSessionPath()
+	got, err := defaultSessionPath()
+	if err != nil {
+		t.Fatalf("defaultSessionPath returned error: %v", err)
+	}
 	if got != "/tmp/custom-session.json" {
 		t.Fatalf("defaultSessionPath = %q, want env override", got)
 	}
@@ -187,6 +191,13 @@ func TestSaveAndLoadSessionRoundTrip(t *testing.T) {
 	if loaded.BaseURL != "https://example.com" {
 		t.Fatalf("BaseURL not normalized: %q", loaded.BaseURL)
 	}
+	info, err := os.Stat(filepath.Dir(path))
+	if err != nil {
+		t.Fatalf("stat parent dir: %v", err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf("parent dir perms = %#o, want 0700", info.Mode().Perm())
+	}
 }
 
 func TestRequireAuthenticatedClientNoSession(t *testing.T) {
@@ -217,7 +228,10 @@ func TestRequireAuthenticatedClientRejectsRemoteHTTPBaseURL(t *testing.T) {
 func TestDefaultSessionPathUsesConfigDir(t *testing.T) {
 	t.Setenv("SPACES_SESSION_FILE", "")
 	t.Setenv("SPACES_CONFIG_DIR", "/tmp/test-config")
-	got := defaultSessionPath()
+	got, err := defaultSessionPath()
+	if err != nil {
+		t.Fatalf("defaultSessionPath returned error: %v", err)
+	}
 	if got != "/tmp/test-config/session.json" {
 		t.Fatalf("defaultSessionPath = %q, want config dir path", got)
 	}
@@ -227,9 +241,66 @@ func TestDefaultSessionPathFallsBackToSpacesConfigHome(t *testing.T) {
 	t.Setenv("SPACES_SESSION_FILE", "")
 	t.Setenv("SPACES_CONFIG_DIR", "")
 	t.Setenv("HOME", "/tmp/test-home")
-	got := defaultSessionPath()
+	got, err := defaultSessionPath()
+	if err != nil {
+		t.Fatalf("defaultSessionPath returned error: %v", err)
+	}
 	if got != "/tmp/test-home/.config/spaces/session.json" {
 		t.Fatalf("defaultSessionPath = %q, want spaces config path", got)
+	}
+}
+
+func TestDefaultSessionPathErrorsWhenHomeCannotBeResolved(t *testing.T) {
+	t.Setenv("SPACES_SESSION_FILE", "")
+	t.Setenv("SPACES_CONFIG_DIR", "")
+	original := lookupUserHomeDir
+	lookupUserHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+	t.Cleanup(func() {
+		lookupUserHomeDir = original
+	})
+
+	_, err := defaultSessionPath()
+	if err == nil || !strings.Contains(err.Error(), "could not resolve a default session file path") {
+		t.Fatalf("defaultSessionPath error = %v, want default-path resolution error", err)
+	}
+}
+
+func TestWritePrivateFileDoesNotFollowSymlink(t *testing.T) {
+	dir := t.TempDir()
+	victim := filepath.Join(dir, "victim.txt")
+	if err := os.WriteFile(victim, []byte("victim"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "session.json")
+	if err := os.Symlink(victim, target); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writePrivateFile(target, []byte("replacement")); err != nil {
+		t.Fatalf("writePrivateFile returned error: %v", err)
+	}
+	victimData, err := os.ReadFile(victim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(victimData) != "victim" {
+		t.Fatalf("victim contents = %q, want unchanged", string(victimData))
+	}
+	info, err := os.Lstat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Fatalf("target path is still a symlink: mode=%v", info.Mode())
+	}
+	targetData, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(targetData) != "replacement" {
+		t.Fatalf("target contents = %q, want replacement", string(targetData))
 	}
 }
 
