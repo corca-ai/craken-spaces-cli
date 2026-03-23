@@ -38,5 +38,21 @@ fake_url="$(cat .specdown/fake-url.txt)"
 cat > .specdown/test-env <<EOF
 FAKE_PID=${fake_pid}
 SPACES=.specdown/spaces
+SPACES_FAKE_API_URL=${fake_url}
+spaces_issue_auth_key() {
+  if [ "\$#" -lt 2 ] || [ "\$#" -gt 3 ]; then
+    echo "usage: spaces_issue_auth_key EMAIL ROLE [SPACE_ID]" >&2
+    return 2
+  fi
+  email="\$1"
+  role="\$2"
+  space_id="\${3:-}"
+  if [ -n "\$space_id" ]; then
+    curl -fsS -G --data-urlencode "email=\$email" --data-urlencode "role=\$role" --data-urlencode "space_id=\$space_id" "\$SPACES_FAKE_API_URL/__test/issue-auth-key"
+    return
+  fi
+  curl -fsS -G --data-urlencode "email=\$email" --data-urlencode "role=\$role" "\$SPACES_FAKE_API_URL/__test/issue-auth-key"
+}
 export SPACES_BASE_URL=${fake_url}
+export SPACES_FAKE_API_URL
 EOF

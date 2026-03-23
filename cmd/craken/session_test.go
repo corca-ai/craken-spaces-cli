@@ -304,6 +304,53 @@ func TestWritePrivateFileDoesNotFollowSymlink(t *testing.T) {
 	}
 }
 
+func TestWritePrivateFileRejectsSharedParentDirectory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "shared")
+	if err := os.MkdirAll(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "session.json")
+
+	err := writePrivateFile(path, []byte("secret"))
+	if err == nil || !strings.Contains(err.Error(), "group- or world-writable") {
+		t.Fatalf("writePrivateFile error = %v, want shared-directory rejection", err)
+	}
+}
+
+func TestLoadSessionRejectsSharedParentDirectory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "shared")
+	if err := os.MkdirAll(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "session.json")
+	if err := os.WriteFile(path, []byte(`{"email":"a@b.com","session_token":"tok"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := loadSession(path)
+	if err == nil || !strings.Contains(err.Error(), "group- or world-writable") {
+		t.Fatalf("loadSession error = %v, want shared-directory rejection", err)
+	}
+}
+
+func TestLoadSessionRejectsInsecurePermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.json")
+	if err := os.WriteFile(path, []byte(`{"email":"a@b.com","session_token":"tok"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := loadSession(path)
+	if err == nil || !strings.Contains(err.Error(), "must not be accessible by group or others") {
+		t.Fatalf("loadSession error = %v, want insecure-permissions rejection", err)
+	}
+}
+
 func TestEnvOrDefault(t *testing.T) {
 	t.Run("env set", func(t *testing.T) {
 		t.Setenv("TEST_ENV_OR_DEFAULT", "custom")

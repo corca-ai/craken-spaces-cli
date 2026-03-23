@@ -733,7 +733,7 @@ func TestAuthLogout(t *testing.T) {
 	}
 }
 
-func TestAuthLogoutKeepsSessionWhenRemoteLogoutFails(t *testing.T) {
+func TestAuthLogoutRemovesSessionWhenRemoteLogoutFails(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
 		"authLogout": {
 			Status: http.StatusBadRequest,
@@ -762,11 +762,38 @@ func TestAuthLogoutKeepsSessionWhenRemoteLogoutFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if session == nil || session.SessionToken != "sess_test" {
-		t.Fatalf("session should have been preserved, got %#v", session)
+	if session != nil {
+		t.Fatalf("session should have been removed, got %#v", session)
 	}
-	if !strings.Contains(stderr.String(), "local session kept") {
-		t.Fatalf("stderr missing preservation warning: %s", stderr.String())
+	if !strings.Contains(stderr.String(), "local session removed") {
+		t.Fatalf("stderr missing removal warning: %s", stderr.String())
+	}
+}
+
+func TestAuthLogoutRemovesSessionWhenSavedBaseURLIsInvalid(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{
+		BaseURL:      "http://example.com",
+		Email:        "alice@example.com",
+		SessionToken: "sess_test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "auth", "logout"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code when saved base URL is invalid")
+	}
+	session, err := loadSession(sessionFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session != nil {
+		t.Fatalf("session should have been removed, got %#v", session)
+	}
+	if !strings.Contains(stderr.String(), "remote logout was skipped") {
+		t.Fatalf("stderr missing skipped-remote warning: %s", stderr.String())
 	}
 }
 
@@ -952,6 +979,22 @@ func TestSSHConnectRequiresRoom(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "--room is required") {
 		t.Fatalf("stderr missing expected message: %s", stderr.String())
+	}
+}
+
+func TestSSHConnectRejectsUnsafeRoomID(t *testing.T) {
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: "http://127.0.0.1", Email: "a@b.com", SessionToken: "sess"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "ssh", "connect", "--room", "sp_123;touch", "--host", "cell.example.com"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code for unsafe room ID")
+	}
+	if !strings.Contains(stderr.String(), "room ID must contain only") {
+		t.Fatalf("stderr missing room validation error: %s", stderr.String())
 	}
 }
 

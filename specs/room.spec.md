@@ -19,11 +19,13 @@ The Room lifecycle is: **create** -> **up** (running) -> **down** (stopped) -> *
 # Test harness -- in normal use, just run "spaces" directly.
 . .specdown/test-env
 tmp=$(mktemp -d)
-printf 'test-key\n' > "$tmp/auth.key"
+spaces_issue_auth_key alice@example.com admin > "$tmp/auth.key"
+chmod 600 "$tmp/auth.key"
 cat > "$tmp/spaces" <<WRAPPER
 #!/bin/sh
 export SPACES_BASE_URL=$SPACES_BASE_URL
-export SPACES_SESSION_FILE=$tmp/session.json
+: "\${SPACES_SESSION_FILE:=$tmp/session.json}"
+export SPACES_SESSION_FILE
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"
@@ -101,11 +103,11 @@ shared with the invitee securely:
 
 ```run:shell
 # Create a Room for member key tests
-${cli} room create --name team-project >/dev/null
+${cli} room create --name team-project | awk '/^created room / {print $3}' > ${tmp}/member-room-id
 ```
 
 ```run:shell
-$ ${cli} room issue-member-auth-key --room sp_2 --email bob@example.com --auth-key-file ${tmp}/bob.authkey | head -2
+$ ${cli} room issue-member-auth-key --room $(cat ${tmp}/member-room-id) --email bob@example.com --auth-key-file ${tmp}/bob.authkey | head -2
 issued room member auth key 1 for bob@example.com
 auth_key_file=${tmp}/bob.authkey
 ```
@@ -118,9 +120,29 @@ View all issued keys for a Room, including their status. The full table
 has columns: id, email, status, expires_at, and issued_at. Here we show the key columns:
 
 ```run:shell
-$ ${cli} room member-auth-keys --room sp_2 | awk '{print $1, $2, $3}'
+$ ${cli} room member-auth-keys --room $(cat ${tmp}/member-room-id) | awk '{print $1, $2, $3}'
 id email status
 1 bob@example.com active
+```
+
+### Member permissions
+
+A member can see their delegated Room but cannot create Rooms or invite others:
+
+```run:shell
+$ SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} auth login --email bob@example.com --key-file ${tmp}/bob.authkey >/dev/null && SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} room list | awk '{print $2, $3}'
+name role
+team-project member
+```
+
+```run:shell
+$ ! SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} room create --name should-fail 2>&1
+error: forbidden
+```
+
+```run:shell
+$ ! SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} room issue-member-auth-key --room $(cat ${tmp}/member-room-id) --email eve@example.com --auth-key-file ${tmp}/eve.authkey 2>&1
+error: forbidden
 ```
 
 ### Revoking a key
@@ -128,7 +150,7 @@ id email status
 Revoke a key to immediately deny the member's access:
 
 ```run:shell
-$ ${cli} room revoke-member-auth-key --room sp_2 --id 1
+$ ${cli} room revoke-member-auth-key --room $(cat ${tmp}/member-room-id) --id 1
 revoked room member auth key 1
 ```
 

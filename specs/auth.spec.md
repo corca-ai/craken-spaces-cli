@@ -12,11 +12,13 @@ commands read that token automatically. Logging out removes the file.
 # Test harness -- in normal use, just run "spaces" directly.
 . .specdown/test-env
 tmp=$(mktemp -d)
-printf 'test-key\n' > "$tmp/auth.key"
+spaces_issue_auth_key alice@example.com admin > "$tmp/auth.key"
+chmod 600 "$tmp/auth.key"
 cat > "$tmp/spaces" <<WRAPPER
 #!/bin/sh
 export SPACES_BASE_URL=$SPACES_BASE_URL
-export SPACES_SESSION_FILE=$tmp/session.json
+: "\${SPACES_SESSION_FILE:=$tmp/session.json}"
+export SPACES_SESSION_FILE
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"

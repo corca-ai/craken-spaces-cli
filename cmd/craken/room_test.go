@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -324,5 +325,29 @@ func TestRoomCreatePayload(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "created room sp_1 (custom-room)") {
 		t.Fatalf("stdout=%s", stdout.String())
+	}
+}
+
+func TestRoomUpEscapesRoomIDInPath(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.EscapedPath()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true,"space":{"id":"sp_1","runtime_state":"running"}}`))
+	}))
+	defer server.Close()
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "room", "up", "--room", "sp_1/../../evil"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("room up code=%d stderr=%s", code, stderr.String())
+	}
+	if gotPath != "/api/v1/spaces/sp_1%2F..%2F..%2Fevil/up" {
+		t.Fatalf("escaped path = %q", gotPath)
 	}
 }

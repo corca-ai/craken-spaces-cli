@@ -41,10 +41,24 @@ func defaultSessionPath() (string, error) {
 }
 
 func loadSession(path string) (*localSession, error) {
-	data, err := os.ReadFile(path)
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, errors.New("session file path is required")
+	}
+	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
+	if err != nil {
+		return nil, err
+	}
+	if err := validateSecretParentDir(path); err != nil {
+		return nil, err
+	}
+	if err := validateSecretFile(path, info); err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

@@ -35,7 +35,11 @@ with explicit environment variables instead of the wrapper.
 tmp=$(mktemp -d)
 export SPACES_BASE_URL
 export SPACES_SESSION_FILE="$tmp/session.json"
-printf 'test-key\n' > "$tmp/auth.key"
+spaces_issue_auth_key alice@example.com admin > "$tmp/auth.key"
+chmod 600 "$tmp/auth.key"
+bob_auth_key="$(spaces_issue_auth_key bob@example.com admin)"
+printf '%s\n' "$bob_auth_key" > "$tmp/bob.auth.key"
+chmod 600 "$tmp/bob.auth.key"
 $SPACES auth login --email alice@example.com --key-file "$tmp/auth.key" >/dev/null
 ssh-keygen -q -t ed25519 -N '' -f "$tmp/id_test"
 printf '%s\n' "$SPACES" "$SPACES_BASE_URL" "$tmp"
@@ -54,7 +58,7 @@ Here we set the env var to a bogus URL and pass the correct URL via the flag;
 login succeeds because the flag takes priority:
 
 ```run:shell
-$ SPACES_BASE_URL=http://wrong:9999 SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url ${url} auth login --email bob@example.com --key-file ${tmp}/auth.key | head -1
+$ SPACES_BASE_URL=http://wrong:9999 SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url ${url} auth login --email bob@example.com --key-file ${tmp}/bob.auth.key | head -1
 authenticated as bob@example.com
 ```
 

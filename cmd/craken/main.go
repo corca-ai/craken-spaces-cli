@@ -124,12 +124,11 @@ func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr 
 	}
 	authKey, err := resolveAuthKey(*keyFile, *keyStdin, stdin)
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return printCLIError(stderr, err)
 	}
 	baseURL, err := cfg.requireBaseURL()
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
+		fmt.Fprintf(stderr, "error: %s\n", sanitizeTerminalText(err.Error()))
 		return 2
 	}
 	client := apiClient{BaseURL: baseURL}
@@ -143,48 +142,56 @@ func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr 
 		"email": *email,
 		"key":   authKey,
 	}, &response); err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return printCLIError(stderr, err)
 	}
 	if err := saveSession(cfg.SessionFile, localSession{
 		BaseURL:      baseURL,
 		Email:        response.Email,
 		SessionToken: response.SessionToken,
 	}); err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return printCLIError(stderr, err)
 	}
-	fmt.Fprintf(stdout, "authenticated as %s\n", response.Email)
-	fmt.Fprintf(stdout, "session saved to %s\n", cfg.SessionFile)
+	fmt.Fprintf(stdout, "authenticated as %s\n", sanitizeTerminalText(response.Email))
+	fmt.Fprintf(stdout, "session saved to %s\n", sanitizeTerminalText(cfg.SessionFile))
 	return 0
 }
 
 func cmdAuthLogout(cfg cliConfig, stdout, stderr io.Writer) int {
 	session, err := loadSession(cfg.SessionFile)
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return printCLIError(stderr, err)
 	}
-	if session != nil && session.SessionToken != "" && session.BaseURL != "" {
-		client := apiClient{BaseURL: session.BaseURL, SessionToken: session.SessionToken}
-		if err := client.doJSON("POST", "/api/v1/auth/logout", nil, nil); err != nil {
-			fmt.Fprintf(stderr, "error: remote logout failed: %v; local session kept in %s\n", err, cfg.SessionFile)
-			return 1
+	sessionPath := sanitizeTerminalText(cfg.SessionFile)
+	if session == nil || session.SessionToken == "" || session.BaseURL == "" {
+		if err := clearSession(cfg.SessionFile); err != nil {
+			return printCLIError(stderr, err)
 		}
+		fmt.Fprintf(stdout, "logged out; session removed from %s\n", sessionPath)
+		return 0
 	}
+	sessionToken := session.SessionToken
+	sessionBaseURL := session.BaseURL
 	if err := clearSession(cfg.SessionFile); err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
+		return printCLIError(stderr, err)
+	}
+	baseURL, err := validateBaseURL(sessionBaseURL)
+	if err != nil {
+		fmt.Fprintf(stderr, "warning: local session removed from %s, but remote logout was skipped: %s\n", sessionPath, sanitizeTerminalText(err.Error()))
 		return 1
 	}
-	fmt.Fprintf(stdout, "logged out; session removed from %s\n", cfg.SessionFile)
+	client := apiClient{BaseURL: baseURL, SessionToken: sessionToken}
+	if err := client.doJSON("POST", "/api/v1/auth/logout", nil, nil); err != nil {
+		fmt.Fprintf(stderr, "warning: local session removed from %s, but remote logout failed: %s\n", sessionPath, sanitizeTerminalText(err.Error()))
+		return 1
+	}
+	fmt.Fprintf(stdout, "logged out; session removed from %s\n", sessionPath)
 	return 0
 }
 
 func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
 	client, _, err := cfg.requireAuthenticatedClient()
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return printCLIError(stderr, err)
 	}
 	var response struct {
 		OK   bool `json:"ok"`
@@ -194,10 +201,9 @@ func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
 		Error string `json:"error"`
 	}
 	if err := client.doJSON("GET", "/api/v1/whoami", nil, &response); err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return printCLIError(stderr, err)
 	}
-	fmt.Fprintln(stdout, response.User.Email)
+	fmt.Fprintln(stdout, sanitizeTerminalText(response.User.Email))
 	return 0
 }
 

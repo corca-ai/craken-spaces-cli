@@ -54,8 +54,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 	if !containsHelpFlag(argv) {
 		c, _, err := cfg.requireAuthenticatedClient()
 		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
 		client = c
 	}
@@ -75,8 +74,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 		}
 		keyMaterial, err := resolvePublicKeyInput(*publicKey, *publicKeyFile)
 		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
 		var response struct {
 			OK    bool         `json:"ok"`
@@ -84,10 +82,9 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			Key   sshKeyRecord `json:"key"`
 		}
 		if err := client.doJSON("POST", "/api/v1/ssh/keys", map[string]any{"name": *name, "public_key": keyMaterial}, &response); err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "registered ssh key %s\n", response.Key.Fingerprint)
+		fmt.Fprintf(stdout, "registered ssh key %s\n", sanitizeTerminalText(response.Key.Fingerprint))
 		return 0
 
 	case "list-keys":
@@ -97,8 +94,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			Keys  []sshKeyRecord `json:"keys"`
 		}
 		if err := client.doJSON("GET", "/api/v1/ssh/keys", nil, &response); err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
 		rows := make([][]string, 0, len(response.Keys))
 		for _, key := range response.Keys {
@@ -122,10 +118,9 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			return 2
 		}
 		if err := client.doJSON("DELETE", "/api/v1/ssh/keys/"+url.PathEscape(*fingerprint), nil, nil); err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
-		fmt.Fprintf(stdout, "removed ssh key %s\n", *fingerprint)
+		fmt.Fprintf(stdout, "removed ssh key %s\n", sanitizeTerminalText(*fingerprint))
 		return 0
 
 	case "issue-cert":
@@ -151,37 +146,38 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
+		validRoomID, err := validateSSHRoomID(*roomID)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
 		resolvedHost, err := resolveSSHHost(*host, client.BaseURL)
 		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
 		if strings.TrimSpace(*alias) == "" {
-			*alias = "spaces-" + *roomID
+			*alias = "spaces-" + validRoomID
 		}
 		if strings.TrimSpace(*identityFile) == "" {
 			*identityFile, _, err = resolveSSHIdentityFile("")
 			if err != nil {
-				fmt.Fprintf(stderr, "error: %v\n", err)
-				return 1
+				return printCLIError(stderr, err)
 			}
 		}
-			config, err := renderSSHClientConfig(sshClientConfig{
-				Alias:           *alias,
-				Host:            resolvedHost,
-				User:            *user,
-				Port:            *port,
-				IdentityFile:    *identityFile,
-				CertificateFile: sshCertificateFileForIdentity(*identityFile),
-				RoomID:          *roomID,
-				KnownHostsFile:  resolveKnownHostsFile(*knownHostsFile),
-			})
-			if err != nil {
-				fmt.Fprintf(stderr, "error: %v\n", err)
-				return 1
-			}
-			fmt.Fprint(stdout, config)
-			return 0
+		config, err := renderSSHClientConfig(sshClientConfig{
+			Alias:           *alias,
+			Host:            resolvedHost,
+			User:            *user,
+			Port:            *port,
+			IdentityFile:    *identityFile,
+			CertificateFile: sshCertificateFileForIdentity(*identityFile),
+			RoomID:          validRoomID,
+			KnownHostsFile:  resolveKnownHostsFile(*knownHostsFile),
+		})
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
+		fmt.Fprint(stdout, config)
+		return 0
 
 	case "connect":
 		fs := flag.NewFlagSet("ssh connect", flag.ContinueOnError)
@@ -204,22 +200,23 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			fmt.Fprintln(stderr, "error: --room is required")
 			return 2
 		}
+		validRoomID, err := validateSSHRoomID(*roomID)
+		if err != nil {
+			return printCLIError(stderr, err)
+		}
 		resolvedHost, err := resolveSSHHost(*host, client.BaseURL)
 		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
 		issued, err := issueSSHCert(client, *identityFile, *user, *certTTL)
 		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
 		sshPath, err := resolveSSHBinary()
 		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
-		target := *roomID
+		target := validRoomID
 		if strings.TrimSpace(*remoteCommand) != "" {
 			target = target + " -- " + *remoteCommand
 		}
@@ -237,8 +234,7 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return 1
+			return printCLIError(stderr, err)
 		}
 		return 0
 
@@ -271,14 +267,13 @@ func cmdSSHIssueCert(client apiClient, argv []string, stdout, stderr io.Writer) 
 	}
 	issued, err := issueSSHCert(client, *identityFile, *principal, *certTTL)
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return printCLIError(stderr, err)
 	}
-	fmt.Fprintf(stdout, "issued ssh certificate %s\n", issued.CertFile)
-	fmt.Fprintf(stdout, "identity_file=%s\n", issued.IdentityFile)
-	fmt.Fprintf(stdout, "key_fingerprint=%s\n", issued.Fingerprint)
-	fmt.Fprintf(stdout, "principal=%s\n", issued.Principal)
-	fmt.Fprintf(stdout, "expires_at=%s\n", issued.ExpiresAt)
+	fmt.Fprintf(stdout, "issued ssh certificate %s\n", sanitizeTerminalText(issued.CertFile))
+	fmt.Fprintf(stdout, "identity_file=%s\n", sanitizeTerminalText(issued.IdentityFile))
+	fmt.Fprintf(stdout, "key_fingerprint=%s\n", sanitizeTerminalText(issued.Fingerprint))
+	fmt.Fprintf(stdout, "principal=%s\n", sanitizeTerminalText(issued.Principal))
+	fmt.Fprintf(stdout, "expires_at=%s\n", sanitizeTerminalText(issued.ExpiresAt))
 	return 0
 }
 
@@ -409,11 +404,13 @@ func validateSSHClientConfig(config sshClientConfig) error {
 		{name: "user", value: config.User},
 		{name: "identity file", value: config.IdentityFile},
 		{name: "certificate file", value: config.CertificateFile},
-		{name: "room ID", value: config.RoomID},
 	} {
 		if err := validateSSHConfigValue(field.name, field.value); err != nil {
 			return err
 		}
+	}
+	if _, err := validateSSHRoomID(config.RoomID); err != nil {
+		return err
 	}
 	if strings.TrimSpace(config.KnownHostsFile) != "" {
 		if err := validateSSHConfigValue("known hosts file", config.KnownHostsFile); err != nil {
@@ -421,6 +418,20 @@ func validateSSHClientConfig(config sshClientConfig) error {
 		}
 	}
 	return nil
+}
+
+func validateSSHRoomID(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", errors.New("room ID is required")
+	}
+	const allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-"
+	for _, r := range value {
+		if !strings.ContainsRune(allowed, r) {
+			return "", errors.New("room ID must contain only letters, numbers, '.', '_', ':', or '-'")
+		}
+	}
+	return value, nil
 }
 
 func validateSSHConfigValue(label, value string) error {

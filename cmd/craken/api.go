@@ -61,7 +61,7 @@ func (c apiClient) doJSON(method, path string, requestBody, responseBody any) er
 		var payload map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&payload); err == nil {
 			if message, ok := payload["error"].(string); ok && strings.TrimSpace(message) != "" {
-				return errors.New(message)
+				return errors.New(sanitizeTerminalText(message))
 			}
 		}
 		return fmt.Errorf("server returned %s", resp.Status)
