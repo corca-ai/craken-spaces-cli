@@ -231,15 +231,15 @@ Commands:
   version                        Print version
   help                           Show this help
 
-	Environment:
-	  SPACES_BASE_URL       Override default control-plane URL (default: https://spaces.borca.ai; http only for localhost/loopback)
-	  SPACES_SESSION_FILE   Override local session file path
-	  SPACES_CONFIG_DIR     Override the config directory used for the default session path
-	  SPACES_SSH_HOST       Override SSH host for Space entry
-	  SPACES_SSH_PORT       Override SSH port (default: 22)
-	  SPACES_SSH_LOGIN_USER Override SSH login user (default: spaces-room)
-	  SPACES_SSH_KNOWN_HOSTS_FILE Override known_hosts file used for SSH host verification
-	  SPACES_SSH_BIN        Override ssh binary path
+Environment:
+  SPACES_BASE_URL       Override default control-plane URL (default: https://spaces.borca.ai; http only for localhost/loopback)
+  SPACES_SESSION_FILE   Override local session file path
+  SPACES_CONFIG_DIR     Override the config directory used for the default session path
+  SPACES_SSH_HOST       Override SSH host for Space entry
+  SPACES_SSH_PORT       Override SSH port (default: 22)
+  SPACES_SSH_LOGIN_USER Override SSH login user (default: spaces-room)
+  SPACES_SSH_KNOWN_HOSTS_FILE Override known_hosts file used for SSH host verification
+  SPACES_SSH_BIN        Override ssh binary path
 `)
 }
 
