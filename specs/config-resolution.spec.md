@@ -62,26 +62,28 @@ $ SPACES_BASE_URL=http://wrong:9999 SPACES_SESSION_FILE=${tmp}/session.json ${bi
 authenticated as bob@example.com
 ```
 
-## Authenticated commands keep the saved origin
+## Environment overrides the saved session
 
-When a session already exists, authenticated commands use the base URL saved in
-that session unless you pass `--base-url` explicitly. Here we set
-`SPACES_BASE_URL` to a different host and confirm the generated SSH config still
-uses the original session host:
+When a session already exists, authenticated commands still honor
+`SPACES_BASE_URL`. Here we set the env var to a different host and confirm the
+generated SSH config uses the env override instead of the saved session host.
+The CLI also prints a warning because the saved session token came from a
+different deployment and may be rejected there:
 
 ```run:shell
-$ SPACES_BASE_URL=https://staging.example.test SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test | grep HostName
-  HostName 127.0.0.1
+$ out="$(SPACES_BASE_URL=https://staging.example.test SPACES_SESSION_FILE=${tmp}/session.json ${bin} ssh client-config --space sp_1 --identity-file ${tmp}/id_test 2>&1)" && printf '%s\n' "$out" | grep -F 'warning: using https://staging.example.test from SPACES_BASE_URL, but the saved session was issued by http://127.0.0.1:' >/dev/null && printf '%s\n' "$out" | grep -F '  HostName staging.example.test' >/dev/null && echo ok
+ok
 ```
 
-## Explicit flag overrides the saved session
+## Explicit flag overrides the environment
 
-Passing `--base-url` remains an explicit opt-in override, even when a session is
-already saved:
+Passing `--base-url` remains the highest-priority override, even when a session
+is already saved and `SPACES_BASE_URL` is set. That explicit override also
+prints the same origin-mismatch warning:
 
 ```run:shell
-$ SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url https://staging.example.test ssh client-config --space sp_1 --identity-file ${tmp}/id_test | grep HostName
-  HostName staging.example.test
+$ out="$(SPACES_BASE_URL=https://wrong.example.test SPACES_SESSION_FILE=${tmp}/session.json ${bin} --base-url https://staging.example.test ssh client-config --space sp_1 --identity-file ${tmp}/id_test 2>&1)" && printf '%s\n' "$out" | grep -F 'warning: using https://staging.example.test from --base-url, but the saved session was issued by http://127.0.0.1:' >/dev/null && printf '%s\n' "$out" | grep -F '  HostName staging.example.test' >/dev/null && echo ok
+ok
 ```
 
 ## Default base URL

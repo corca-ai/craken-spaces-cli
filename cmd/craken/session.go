@@ -125,6 +125,15 @@ func warnSessionUpdate(stderr io.Writer, action string, err error) {
 	fmt.Fprintf(stderr, "warning: %s: %s\n", action, sanitizeTerminalText(err.Error()))
 }
 
+func warnAuthenticatedBaseURLOverride(stderr io.Writer, cfg cliConfig, session *localSession) {
+	if stderr == nil {
+		return
+	}
+	if warning := cfg.authenticatedBaseURLOverrideWarning(session); warning != "" {
+		fmt.Fprintf(stderr, "warning: %s\n", sanitizeTerminalText(warning))
+	}
+}
+
 func normalizeBaseURL(value string) string {
 	return strings.TrimRight(strings.TrimSpace(value), "/")
 }
@@ -141,6 +150,16 @@ func configuredBaseURLOverride() string {
 	return normalizeBaseURL(os.Getenv("SPACES_BASE_URL"))
 }
 
+func (cfg cliConfig) authenticatedBaseURLOverride() (value, source string) {
+	if cfg.BaseURL != "" {
+		return cfg.BaseURL, "--base-url"
+	}
+	if envURL := configuredBaseURLOverride(); envURL != "" {
+		return envURL, "SPACES_BASE_URL"
+	}
+	return "", ""
+}
+
 func (cfg cliConfig) resolveBaseURL(session *localSession) string {
 	if cfg.BaseURL != "" {
 		return cfg.BaseURL
@@ -155,16 +174,29 @@ func (cfg cliConfig) resolveBaseURL(session *localSession) string {
 }
 
 func (cfg cliConfig) resolveAuthenticatedBaseURL(session *localSession) string {
-	if cfg.BaseURL != "" {
-		return cfg.BaseURL
+	if overrideURL, _ := cfg.authenticatedBaseURLOverride(); overrideURL != "" {
+		return overrideURL
 	}
 	if session != nil && session.BaseURL != "" {
 		return session.BaseURL
 	}
-	if envURL := configuredBaseURLOverride(); envURL != "" {
-		return envURL
-	}
 	return defaultPublicBaseURL
+}
+
+func (cfg cliConfig) authenticatedBaseURLOverrideWarning(session *localSession) string {
+	if session == nil {
+		return ""
+	}
+	savedBaseURL := normalizeBaseURL(session.BaseURL)
+	if savedBaseURL == "" {
+		return ""
+	}
+	overrideURL, source := cfg.authenticatedBaseURLOverride()
+	overrideURL = normalizeBaseURL(overrideURL)
+	if overrideURL == "" || overrideURL == savedBaseURL {
+		return ""
+	}
+	return fmt.Sprintf("using %s from %s, but the saved session was issued by %s; the target deployment may reject this session token", overrideURL, source, savedBaseURL)
 }
 
 func validateBaseURL(value string) (string, error) {

@@ -23,6 +23,10 @@ sh install.sh
 ```sh
 spaces <command> [options]
 spaces help
+spaces login you@example.com
+spaces list
+spaces create my-project
+spaces connect
 ```
 
 The CLI defaults to:

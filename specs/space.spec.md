@@ -17,8 +17,8 @@ The Space lifecycle is: **create** (running) -> **down** (stopped) -> **up** (ru
 
 In practice, the roles map to different CLI workflows:
 
-- **Space admin** -- `login`, `space create/list/up/down/delete`, `space issue-member-auth-key`, `space member-auth-keys`, `space revoke-member-auth-key`, and `connect`
-- **Space member** -- `login`, `space list`, and `connect`
+- **Space admin** -- `login`, `create`, `list`, `space up/down/delete`, `space issue-member-auth-key`, `space member-auth-keys`, `space revoke-member-auth-key`, and `connect`
+- **Space member** -- `login`, `list`, and `connect`
 - **Not allowed for members** -- creating Spaces, deleting Spaces, or issuing/revoking member auth keys
 
 ```run:shell -> $cli, $tmp
@@ -54,10 +54,10 @@ These commands are available to Space admins who create and control Spaces.
 Create a new Space with a name. Default resource limits apply unless
 overridden with flags like `--cpu-millis`, `--memory-mib`, `--llm-tokens-limit`.
 Newly created Spaces start immediately, so admins usually do not need to
-run `space up` right after `space create`:
+run `space up` right after `create`:
 
 ```run:shell
-$ ${cli} space create --name my-room
+$ ${cli} create my-room
 created space sp_1 (my-room)
 space sp_1 is running
 ```
@@ -72,7 +72,7 @@ Commands that take `--space` accept either the exact `sp_...` Space ID or the
 exact Space name when that name is unique among Spaces you can access.
 
 ```run:shell
-$ ${cli} space list | awk '{print $1, $2, $4}'
+$ ${cli} list | awk '{print $1, $2, $4}'
 id name state
 sp_1 my-room running
 ```
@@ -124,7 +124,7 @@ invitee and remove the local file when you no longer need it:
 
 ```run:shell
 # Create a Space for member key tests
-${cli} space create --name team-project >/dev/null
+${cli} create team-project >/dev/null
 ```
 
 ```run:shell
@@ -153,7 +153,7 @@ id email status
 A member can see their delegated Space but cannot create Spaces or invite others:
 
 ```run:shell
-$ SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} auth login --email bob@example.com --key-file ${tmp}/bob.authkey >/dev/null && SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} space list | awk '{print $2, $3}'
+$ SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} auth login --email bob@example.com --key-file ${tmp}/bob.authkey >/dev/null && SPACES_SESSION_FILE=${tmp}/bob.session.json ${cli} list | awk '{print $2, $3}'
 name role
 team-project member
 ```
@@ -183,7 +183,7 @@ As a member, you receive an auth key from a Space admin. Here is the
 typical flow to get into your Room:
 
 1. Log in with the auth key you received
-2. Use `space list` to confirm which Space you can access
+2. Use `list` to confirm which Space you can access
 3. Run `connect`; if you only have one visible Space, it is selected automatically
 
 As a member, you do not create or manage the Space itself. Your job is to
@@ -194,7 +194,7 @@ enter your own Room and work there.
 spaces login you@example.com
 
 # 2. List your Spaces to find the exact Space name if you need it
-spaces space list
+spaces list
 
 # 3. Connect to your Space
 spaces connect

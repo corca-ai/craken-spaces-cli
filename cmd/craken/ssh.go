@@ -67,11 +67,12 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 	}
 	var client apiClient
 	if !containsHelpFlag(argv) {
-		c, _, err := cfg.requireAuthenticatedClient()
+		c, session, err := cfg.requireAuthenticatedClient()
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
 		client = c
+		warnAuthenticatedBaseURLOverride(stderr, cfg, session)
 	}
 
 	switch argv[0] {
@@ -231,6 +232,7 @@ func cmdConnectCommand(cfg cliConfig, commandName string, argv []string, stdin i
 	if err != nil {
 		return printCLIError(stderr, err)
 	}
+	warnAuthenticatedBaseURLOverride(stderr, cfg, session)
 	return runSSHConnect(client, session, cfg.SessionFile, request, stdin, stdout, stderr)
 }
 

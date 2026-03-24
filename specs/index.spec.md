@@ -47,7 +47,7 @@ against the control-plane API, manages Spaces, and uses local `ssh` for
 final Room entry. Most users only need three commands:
 
 - `spaces login you@example.com` -- log in and paste the auth key when prompted
-- `spaces space list` -- see which Spaces you can access
+- `spaces list` -- see which Spaces you can access
 - `spaces connect` -- enter your Room; the CLI uses your default Space (or the only Space you can access) and handles SSH key creation, registration, host trust material, and short-lived cert issuance automatically
 
 ## Install
@@ -83,7 +83,7 @@ If you are a **Space admin**, your normal workflow is:
 spaces login you@example.com
 
 # 2. Create a Space
-spaces space create --name my-project
+spaces create my-project
 # → created space sp_xxx (my-project)
 # → space sp_xxx is running  (create auto-starts the Space)
 
@@ -118,7 +118,7 @@ Spaces or issue member auth keys.
 spaces login you@example.com
 
 # 2. Find your Space ID or exact Space name if you do not already know it
-spaces space list
+spaces list
 
 # 3. Connect to your Space
 spaces connect

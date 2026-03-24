@@ -64,6 +64,10 @@ func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int 
 		return cmdAuth(cfg, args[1:], stdin, stdout, stderr)
 	case "login":
 		return cmdLogin(cfg, args[1:], stdin, stdout, stderr)
+	case "create":
+		return cmdCreate(cfg, args[1:], stdout, stderr)
+	case "list":
+		return cmdList(cfg, stdout, stderr)
 	case "whoami":
 		return cmdWhoAmI(cfg, stdout, stderr)
 	case "space":
@@ -123,6 +127,14 @@ func cmdLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.W
 		return code
 	}
 	return runLoginRequest(cfg, request, stdin, stdout, stderr)
+}
+
+func cmdCreate(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
+	return cmdCreateCommand(cfg, "create", argv, stdout, stderr)
+}
+
+func cmdList(cfg cliConfig, stdout, stderr io.Writer) int {
+	return cmdSpace(cfg, []string{"list"}, stdout, stderr)
 }
 
 type loginRequest struct {
@@ -242,10 +254,11 @@ func cmdAuthLogout(cfg cliConfig, stdout, stderr io.Writer) int {
 }
 
 func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
-	client, _, err := cfg.requireAuthenticatedClient()
+	client, session, err := cfg.requireAuthenticatedClient()
 	if err != nil {
 		return printCLIError(stderr, err)
 	}
+	warnAuthenticatedBaseURLOverride(stderr, cfg, session)
 	var response struct {
 		OK   bool `json:"ok"`
 		User struct {
@@ -265,6 +278,8 @@ func printUsage(w io.Writer) {
 
 Shortcut Commands:
   login EMAIL                    Log in with email and auth key
+  create SPACE                   Create a new Space
+  list                           List Spaces you have access to
   connect [SPACE]                Connect to a Space; uses the default Space when omitted
 
 Commands:

@@ -692,7 +692,7 @@ func TestSSHConnectGeneratesManagedIdentityWhenMissing(t *testing.T) {
 	}
 }
 
-func TestSSHClientConfigUsesSavedSessionBaseURLForHostResolution(t *testing.T) {
+func TestSSHClientConfigUsesEnvironmentBaseURLForHostResolution(t *testing.T) {
 	t.Setenv("SPACES_BASE_URL", "https://staging.example.test")
 
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
@@ -719,8 +719,11 @@ func TestSSHClientConfigUsesSavedSessionBaseURLForHostResolution(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("ssh client-config code=%d stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "HostName spaces.borca.ai") {
-		t.Fatalf("stdout missing session-resolved host:\n%s", stdout.String())
+	if !strings.Contains(stdout.String(), "HostName staging.example.test") {
+		t.Fatalf("stdout missing env-resolved host:\n%s", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "warning: using https://staging.example.test from SPACES_BASE_URL") {
+		t.Fatalf("stderr missing origin mismatch warning:\n%s", stderr.String())
 	}
 }
 
@@ -814,6 +817,9 @@ func TestSSHClientConfigAllowsExplicitBaseURLOverrideForHostResolution(t *testin
 	}
 	if !strings.Contains(stdout.String(), "HostName staging.example.test") {
 		t.Fatalf("stdout missing explicit-override host:\n%s", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "warning: using https://staging.example.test from --base-url") {
+		t.Fatalf("stderr missing origin mismatch warning:\n%s", stderr.String())
 	}
 }
 
@@ -1024,6 +1030,54 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "deleted space") {
 		t.Fatalf("stdout missing 'deleted space': %s", stdout.String())
+	}
+}
+
+func TestRootCreateAndListShortcuts(t *testing.T) {
+	spaceBody := map[string]any{
+		"id": "sp_1", "name": "shortcut-room", "role": "admin",
+		"owner_user_id": 1,
+		"runtime_state": "running", "runtime_meta": "",
+		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
+		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
+		"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
+		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+		"created_at": "2026-01-01T00:00:00Z",
+	}
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"createSpace": {
+			Body: map[string]any{"ok": true, "space": spaceBody},
+		},
+		"listSpaces": {
+			Body: map[string]any{
+				"ok":     true,
+				"spaces": []any{spaceBody},
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "create", "shortcut-room"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("create code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "created space sp_1 (shortcut-room)") {
+		t.Fatalf("stdout missing created space output: %s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"--session-file", sessionFile, "list"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("list code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "shortcut-room") {
+		t.Fatalf("stdout missing shortcut-room: %s", stdout.String())
 	}
 }
 
@@ -1300,15 +1354,17 @@ func TestHelpCommand(t *testing.T) {
 		t.Fatalf("stdout missing section headers:\n%s", stdout.String())
 	}
 	loginIndex := strings.Index(stdout.String(), "\n  login EMAIL")
+	createIndex := strings.Index(stdout.String(), "\n  create SPACE")
+	listIndex := strings.Index(stdout.String(), "\n  list")
 	connectIndex := strings.Index(stdout.String(), "\n  connect [SPACE]")
 	authIndex := strings.Index(stdout.String(), "\n  auth login")
 	sshIndex := strings.Index(stdout.String(), "\n  ssh connect")
 	shortcutHeaderIndex := strings.Index(stdout.String(), "\nShortcut Commands:\n")
 	commandsHeaderIndex := strings.Index(stdout.String(), "\nCommands:\n")
-	if loginIndex < 0 || connectIndex < 0 || authIndex < 0 || sshIndex < 0 {
+	if loginIndex < 0 || createIndex < 0 || listIndex < 0 || connectIndex < 0 || authIndex < 0 || sshIndex < 0 {
 		t.Fatalf("stdout missing expected commands:\n%s", stdout.String())
 	}
-	if shortcutHeaderIndex >= loginIndex || loginIndex >= connectIndex || connectIndex >= commandsHeaderIndex || commandsHeaderIndex >= authIndex || authIndex >= sshIndex {
+	if shortcutHeaderIndex >= loginIndex || loginIndex >= createIndex || createIndex >= listIndex || listIndex >= connectIndex || connectIndex >= commandsHeaderIndex || commandsHeaderIndex >= authIndex || authIndex >= sshIndex {
 		t.Fatalf("help sections or ordering are wrong:\n%s", stdout.String())
 	}
 }

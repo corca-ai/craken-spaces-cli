@@ -32,15 +32,40 @@ func TestResolveBaseURLPrefersEnvironmentOverSession(t *testing.T) {
 	}
 }
 
-func TestResolveAuthenticatedBaseURLPrefersSavedSessionOverEnvironment(t *testing.T) {
+func TestResolveAuthenticatedBaseURLPrefersEnvironmentOverSavedSession(t *testing.T) {
 	t.Setenv("SPACES_BASE_URL", "https://staging.example.test/")
 
 	cfg := cliConfig{}
 	session := &localSession{BaseURL: "https://spaces.borca.ai"}
 
 	got := cfg.resolveAuthenticatedBaseURL(session)
-	if got != "https://spaces.borca.ai" {
-		t.Fatalf("resolveAuthenticatedBaseURL = %q, want saved session origin", got)
+	if got != "https://staging.example.test" {
+		t.Fatalf("resolveAuthenticatedBaseURL = %q, want env override", got)
+	}
+}
+
+func TestAuthenticatedBaseURLOverrideWarningForEnvironment(t *testing.T) {
+	t.Setenv("SPACES_BASE_URL", "https://staging.example.test/")
+
+	cfg := cliConfig{}
+	session := &localSession{BaseURL: "https://spaces.borca.ai"}
+
+	got := cfg.authenticatedBaseURLOverrideWarning(session)
+	if !strings.Contains(got, "using https://staging.example.test from SPACES_BASE_URL") {
+		t.Fatalf("warning = %q", got)
+	}
+	if !strings.Contains(got, "saved session was issued by https://spaces.borca.ai") {
+		t.Fatalf("warning = %q", got)
+	}
+}
+
+func TestAuthenticatedBaseURLOverrideWarningForFlag(t *testing.T) {
+	cfg := cliConfig{BaseURL: "https://staging.example.test"}
+	session := &localSession{BaseURL: "https://spaces.borca.ai"}
+
+	got := cfg.authenticatedBaseURLOverrideWarning(session)
+	if !strings.Contains(got, "using https://staging.example.test from --base-url") {
+		t.Fatalf("warning = %q", got)
 	}
 }
 
