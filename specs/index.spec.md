@@ -46,9 +46,9 @@ Craken Spaces is currently invite-only.
 against the control-plane API, manages Spaces, and uses local `ssh` for
 final Room entry. Most users only need three commands:
 
-- `spaces auth login` -- log in and paste the auth key when prompted
+- `spaces login you@example.com` -- log in and paste the auth key when prompted
 - `spaces space list` -- see which Spaces you can access
-- `spaces ssh connect --space ...` -- enter your Room; the CLI handles SSH key creation, registration, host trust material, and short-lived cert issuance automatically
+- `spaces connect` -- enter your Room; the CLI uses your default Space (or the only Space you can access) and handles SSH key creation, registration, host trust material, and short-lived cert issuance automatically
 
 ## Install
 
@@ -80,7 +80,7 @@ If you are a **Space admin**, your normal workflow is:
 
 ```sh
 # 1. Log in and paste your auth key when prompted
-spaces auth login --email you@example.com
+spaces login you@example.com
 
 # 2. Create a Space
 spaces space create --name my-project
@@ -88,7 +88,7 @@ spaces space create --name my-project
 # → space sp_xxx is running  (create auto-starts the Space)
 
 # 3. Connect
-spaces ssh connect --space my-project
+spaces connect
 
 # 4. Invite a team member with scoped resource limits
 spaces space issue-member-auth-key --space my-project --email teammate@example.com --auth-key-file ./teammate.authkey
@@ -115,13 +115,13 @@ Spaces or issue member auth keys.
 
 ```sh
 # 1. Log in and paste the auth key you received
-spaces auth login --email you@example.com
+spaces login you@example.com
 
 # 2. Find your Space ID or exact Space name if you do not already know it
 spaces space list
 
 # 3. Connect to your Space
-spaces ssh connect --space my-project
+spaces connect
 ```
 
 ## Feature Specifications

@@ -47,12 +47,14 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 		return 0
 	}
 	var client apiClient
+	var session *localSession
 	if !containsHelpFlag(argv) {
-		c, _, err := cfg.requireAuthenticatedClient()
+		c, s, err := cfg.requireAuthenticatedClient()
 		if err != nil {
 			return printCLIError(stderr, err)
 		}
 		client = c
+		session = s
 	}
 
 	switch argv[0] {
@@ -96,6 +98,7 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 				return printCLIError(stderr, err)
 			}
 		}
+		warnSessionUpdate(stderr, "failed to save default space", setSessionDefaultSpace(cfg.SessionFile, session, response.Space.ID))
 		fmt.Fprintf(stdout, "created space %s (%s)\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.Name))
 		if strings.TrimSpace(response.Space.RuntimeState) != "" {
 			fmt.Fprintf(stdout, "space %s is %s\n", sanitizeTerminalText(response.Space.ID), sanitizeTerminalText(response.Space.RuntimeState))
@@ -181,6 +184,9 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
 		if err := client.doJSON("DELETE", "/api/v1/spaces/"+escapedSpaceID+"/delete", nil, nil); err != nil {
 			return printCLIError(stderr, err)
+		}
+		if session != nil && strings.TrimSpace(session.DefaultSpace) == strings.TrimSpace(space.ID) {
+			warnSessionUpdate(stderr, "failed to clear default space", clearSessionDefaultSpace(cfg.SessionFile, session))
 		}
 		fmt.Fprintf(stdout, "deleted space %s\n", sanitizeTerminalText(space.ID))
 		return 0

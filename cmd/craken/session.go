@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -15,6 +16,7 @@ type localSession struct {
 	BaseURL      string `json:"base_url"`
 	Email        string `json:"email"`
 	SessionToken string `json:"session_token"`
+	DefaultSpace string `json:"default_space,omitempty"`
 }
 
 type cliConfig struct {
@@ -84,6 +86,43 @@ func clearSession(path string) error {
 		return nil
 	}
 	return err
+}
+
+func setSessionDefaultSpace(path string, session *localSession, spaceID string) error {
+	spaceID = strings.TrimSpace(spaceID)
+	if session == nil || spaceID == "" {
+		return nil
+	}
+	if strings.TrimSpace(session.DefaultSpace) == spaceID {
+		return nil
+	}
+	updated := *session
+	updated.DefaultSpace = spaceID
+	if err := saveSession(path, updated); err != nil {
+		return err
+	}
+	session.DefaultSpace = spaceID
+	return nil
+}
+
+func clearSessionDefaultSpace(path string, session *localSession) error {
+	if session == nil || strings.TrimSpace(session.DefaultSpace) == "" {
+		return nil
+	}
+	updated := *session
+	updated.DefaultSpace = ""
+	if err := saveSession(path, updated); err != nil {
+		return err
+	}
+	session.DefaultSpace = ""
+	return nil
+}
+
+func warnSessionUpdate(stderr io.Writer, action string, err error) {
+	if err == nil {
+		return
+	}
+	fmt.Fprintf(stderr, "warning: %s: %s\n", action, sanitizeTerminalText(err.Error()))
 }
 
 func normalizeBaseURL(value string) string {

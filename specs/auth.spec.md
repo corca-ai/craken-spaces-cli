@@ -40,13 +40,13 @@ rm -rf ${tmp}
 
 Authenticate with your email and a one-time auth key provided by your
 platform approval flow or by your Space admin. On a terminal,
-`spaces auth login --email alice@example.com`
+`spaces login alice@example.com`
 prompts for the auth key automatically and masks what you type with `*`.
 For non-interactive shells, use `--key-file` or `--key-stdin`. The
 executable example here stays non-interactive by using `--key-file`:
 
 ```run:shell
-$ ${cli} auth login --email alice@example.com --key-file ${tmp}/auth.key
+$ ${cli} login alice@example.com --key-file ${tmp}/auth.key
 authenticated as alice@example.com
 ...
 ```

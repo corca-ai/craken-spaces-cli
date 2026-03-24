@@ -173,6 +173,7 @@ func TestSaveAndLoadSessionRoundTrip(t *testing.T) {
 		BaseURL:      "https://example.com/",
 		Email:        "test@example.com",
 		SessionToken: "tok_123",
+		DefaultSpace: "sp_123",
 	}
 	if err := saveSession(path, session); err != nil {
 		t.Fatalf("saveSession: %v", err)
@@ -186,6 +187,9 @@ func TestSaveAndLoadSessionRoundTrip(t *testing.T) {
 	}
 	if loaded.Email != session.Email || loaded.SessionToken != session.SessionToken {
 		t.Fatalf("loaded session mismatch: %+v", loaded)
+	}
+	if loaded.DefaultSpace != session.DefaultSpace {
+		t.Fatalf("DefaultSpace = %q, want %q", loaded.DefaultSpace, session.DefaultSpace)
 	}
 	// BaseURL should be normalized (trailing slash removed)
 	if loaded.BaseURL != "https://example.com" {

@@ -6,9 +6,9 @@ type: spec
 
 The CLI manages SSH public keys and short-lived certificates for secure Room
 entry. For both **Space admins** and **Space members**, the default command is
-`spaces ssh connect --space ...`. The typical flow is:
+`spaces connect`. The typical flow is:
 
-1. **Connect** to a Space with `ssh connect`.
+1. **Connect** to a Space with `connect`.
 2. The CLI ensures a dedicated local SSH key exists, registers that public key
    if needed, fetches pinned host trust material, issues a short-lived
    certificate, and invokes `ssh`.
@@ -33,7 +33,7 @@ export SPACES_SESSION_FILE
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"
-"$tmp/spaces" auth login --email alice@example.com --key-file "$tmp/auth.key" >/dev/null
+"$tmp/spaces" login alice@example.com --key-file "$tmp/auth.key" >/dev/null
 ssh-keygen -q -t ed25519 -N '' -f "$tmp/id_ed25519"
 printf '%s\n' "$tmp/spaces" "$tmp"
 ```
@@ -79,12 +79,15 @@ removed ssh key SHA256:fake1
 
 ### Quick connect
 
-`ssh connect` is the easiest way to enter a Space. It handles certificate
-issuance automatically. The `--space` flag accepts either the Space ID
-(e.g. `sp_xxx`) or the exact Space name when that name is unique among your
-visible Spaces:
+`connect` is the easiest way to enter a Space. It handles certificate
+issuance automatically. If you omit `SPACE`, the CLI uses your saved default
+Space, or the only visible Space when exactly one is available. When you want
+to override that choice, pass either the Space ID (e.g. `sp_xxx`) or the exact
+Space name when that name is unique among your visible Spaces:
 
 ```sh
+spaces connect
+spaces connect my-project
 spaces ssh connect --space my-project
 ```
 
@@ -97,7 +100,7 @@ Behind the scenes, the CLI:
 5. Writes the certificate next to the private key
 6. Runs `ssh` with strict host-key checking, the certificate, the identity file, and the Space target
 
-That means a member who has already run `spaces auth login` usually does not
+That means a member who has already run `spaces login you@example.com` usually does not
 need to think about `ssh add-key`, `ssh list-keys`, `ssh remove-key`, or
 `ssh issue-cert` at all.
 

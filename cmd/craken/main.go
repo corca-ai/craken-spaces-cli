@@ -62,12 +62,16 @@ func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int 
 	switch args[0] {
 	case "auth":
 		return cmdAuth(cfg, args[1:], stdin, stdout, stderr)
+	case "login":
+		return cmdLogin(cfg, args[1:], stdin, stdout, stderr)
 	case "whoami":
 		return cmdWhoAmI(cfg, stdout, stderr)
 	case "space":
 		return cmdSpace(cfg, args[1:], stdout, stderr)
 	case "ssh":
 		return cmdSSH(cfg, args[1:], stdin, stdout, stderr)
+	case "connect":
+		return cmdConnect(cfg, args[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unknown command %q\n\n", args[0])
 		printUsage(stderr)
@@ -98,29 +102,80 @@ func cmdAuth(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wr
 }
 
 func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("auth login", flag.ContinueOnError)
+	if len(argv) > 0 && isHelpWord(argv[0]) {
+		printLoginUsage(stdout)
+		return 0
+	}
+	request, code, done := parseLoginRequest("auth login", argv, stderr)
+	if done {
+		return code
+	}
+	return runLoginRequest(cfg, request, stdin, stdout, stderr)
+}
+
+func cmdLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(argv) > 0 && isHelpWord(argv[0]) {
+		printLoginUsage(stdout)
+		return 0
+	}
+	request, code, done := parseLoginRequest("login", argv, stderr)
+	if done {
+		return code
+	}
+	return runLoginRequest(cfg, request, stdin, stdout, stderr)
+}
+
+type loginRequest struct {
+	Email    string
+	KeyFile  string
+	KeyStdin bool
+}
+
+func parseLoginRequest(commandName string, argv []string, stderr io.Writer) (loginRequest, int, bool) {
+	fs := flag.NewFlagSet(commandName, flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage:\n  spaces %s [EMAIL] [--key-file PATH | --key-stdin]\n\nFlags:\n", commandName)
+		fs.PrintDefaults()
+	}
 	email := fs.String("email", "", "user email address")
 	keyFile := fs.String("key-file", "", "path to a file containing the one-time auth key")
 	keyStdin := fs.Bool("key-stdin", false, "read the one-time auth key from stdin")
+	if len(argv) > 0 && !strings.HasPrefix(argv[0], "-") && !isHelpWord(argv[0]) {
+		argv = append([]string{"--email", argv[0]}, argv[1:]...)
+	}
 	if err := fs.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return 0
+			return loginRequest{}, 0, true
 		}
-		return 2
+		return loginRequest{}, 2, true
 	}
-	if strings.TrimSpace(*email) == "" {
+	if extra := fs.Args(); len(extra) > 0 {
+		fmt.Fprintf(stderr, "error: unexpected arguments: %s\n\n", strings.Join(extra, " "))
+		fs.Usage()
+		return loginRequest{}, 2, true
+	}
+	request := loginRequest{
+		Email:    *email,
+		KeyFile:  *keyFile,
+		KeyStdin: *keyStdin,
+	}
+	return request, 0, false
+}
+
+func runLoginRequest(cfg cliConfig, request loginRequest, stdin io.Reader, stdout, stderr io.Writer) int {
+	if strings.TrimSpace(request.Email) == "" {
 		fmt.Fprintln(stderr, "error: --email is required")
 		return 2
 	}
-	if strings.TrimSpace(*keyFile) != "" && *keyStdin {
+	if strings.TrimSpace(request.KeyFile) != "" && request.KeyStdin {
 		fmt.Fprintln(stderr, "error: use only one of --key-file or --key-stdin")
 		return 2
 	}
 	origTerminalStatusSink := terminalStatusSink
 	terminalStatusSink = stderr
 	defer func() { terminalStatusSink = origTerminalStatusSink }()
-	authKey, err := resolveAuthKey(*keyFile, *keyStdin, stdin)
+	authKey, err := resolveAuthKey(request.KeyFile, request.KeyStdin, stdin)
 	if err != nil {
 		return printCLIError(stderr, err)
 	}
@@ -137,7 +192,7 @@ func cmdAuthLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr 
 		SessionToken string `json:"session_token"`
 	}
 	if err := client.doJSON("POST", "/api/v1/auth/login", map[string]any{
-		"email": *email,
+		"email": request.Email,
 		"key":   authKey,
 	}, &response); err != nil {
 		return printCLIError(stderr, err)
@@ -208,6 +263,10 @@ func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
 func printUsage(w io.Writer) {
 	fmt.Fprint(w, `Usage: spaces [--base-url URL] [--session-file PATH] <command> [options]
 
+Shortcut Commands:
+  login EMAIL                    Log in with email and auth key
+  connect [SPACE]                Connect to a Space; uses the default Space when omitted
+
 Commands:
   auth login                     Log in with email and auth key
   auth logout                    End session and remove local credentials
@@ -243,8 +302,14 @@ Environment:
 
 func printAuthUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  spaces auth login --email EMAIL [--key-file PATH | --key-stdin]")
+	fmt.Fprintln(w, "  spaces auth login [EMAIL] [--key-file PATH | --key-stdin]")
 	fmt.Fprintln(w, "  spaces auth logout")
+}
+
+func printLoginUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  spaces login EMAIL [--key-file PATH | --key-stdin]")
+	fmt.Fprintln(w, "  spaces auth login [EMAIL] [--key-file PATH | --key-stdin]")
 }
 
 func isHelpWord(value string) bool {

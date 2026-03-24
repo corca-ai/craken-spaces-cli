@@ -17,8 +17,8 @@ The Space lifecycle is: **create** (running) -> **down** (stopped) -> **up** (ru
 
 In practice, the roles map to different CLI workflows:
 
-- **Space admin** -- `auth login`, `space create/list/up/down/delete`, `space issue-member-auth-key`, `space member-auth-keys`, `space revoke-member-auth-key`, and `ssh connect`
-- **Space member** -- `auth login`, `space list`, and `ssh connect`
+- **Space admin** -- `login`, `space create/list/up/down/delete`, `space issue-member-auth-key`, `space member-auth-keys`, `space revoke-member-auth-key`, and `connect`
+- **Space member** -- `login`, `space list`, and `connect`
 - **Not allowed for members** -- creating Spaces, deleting Spaces, or issuing/revoking member auth keys
 
 ```run:shell -> $cli, $tmp
@@ -35,7 +35,7 @@ export SPACES_SESSION_FILE
 exec $SPACES "\$@"
 WRAPPER
 chmod +x "$tmp/spaces"
-"$tmp/spaces" auth login --email alice@example.com --key-file "$tmp/auth.key" >/dev/null
+"$tmp/spaces" login alice@example.com --key-file "$tmp/auth.key" >/dev/null
 printf '%s\n' "$tmp/spaces" "$tmp"
 ```
 
@@ -184,20 +184,20 @@ typical flow to get into your Room:
 
 1. Log in with the auth key you received
 2. Use `space list` to confirm which Space you can access
-3. Run `ssh connect` for that Space
+3. Run `connect`; if you only have one visible Space, it is selected automatically
 
 As a member, you do not create or manage the Space itself. Your job is to
 enter your own Room and work there.
 
 ```sh
 # 1. Log in with the auth key you received
-spaces auth login --email you@example.com
+spaces login you@example.com
 
 # 2. List your Spaces to find the exact Space name if you need it
 spaces space list
 
 # 3. Connect to your Space
-spaces ssh connect --space team-project
+spaces connect
 ```
 
 Once inside, you have a full machine with your own filesystem, processes,

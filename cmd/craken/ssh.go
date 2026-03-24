@@ -32,6 +32,17 @@ type sshConnectOptions struct {
 	Target         string
 }
 
+type sshConnectRequest struct {
+	SpaceRef       string
+	Host           string
+	User           string
+	Port           int
+	IdentityFile   string
+	KnownHostsFile string
+	CertTTL        string
+	RemoteCommand  string
+}
+
 type sshClientConfig struct {
 	Alias           string
 	Host            string
@@ -50,6 +61,9 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 			return 2
 		}
 		return 0
+	}
+	if argv[0] == "connect" {
+		return cmdSSHConnect(cfg, argv[1:], stdin, stdout, stderr)
 	}
 	var client apiClient
 	if !containsHelpFlag(argv) {
@@ -189,77 +203,171 @@ func cmdSSH(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wri
 		fmt.Fprint(stdout, config)
 		return 0
 
-	case "connect":
-		fs := flag.NewFlagSet("ssh connect", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		spaceRef := fs.String("space", "", "space ID or exact space name to target")
-		host := fs.String("host", "", "SSH host name")
-		user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
-		port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
-		identityFile := fs.String("identity-file", "", "SSH private key path; defaults to ~/.ssh/id_ed25519_spaces and generates it if needed")
-		knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
-		certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
-		remoteCommand := fs.String("command", "", "optional command to run inside the user Room")
-		if err := fs.Parse(argv[1:]); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return 0
-			}
-			return 2
-		}
-		if strings.TrimSpace(*spaceRef) == "" {
-			fmt.Fprintln(stderr, "error: --space is required")
-			return 2
-		}
-		space, err := resolveSpaceRef(client, *spaceRef)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		validSpaceID, err := validateSSHSpaceID(space.ID)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		resolvedHost, err := resolveSSHHost(*host, client.BaseURL)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		knownHostsPath, err := ensureSSHKnownHost(client, resolvedHost, *port, *knownHostsFile)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		issued, err := issueSSHCert(client, *identityFile, *user, *certTTL)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		sshPath, err := resolveSSHBinary()
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		target := validSpaceID
-		if strings.TrimSpace(*remoteCommand) != "" {
-			target = target + " -- " + *remoteCommand
-		}
-		args := buildSSHConnectArgs(sshConnectOptions{
-			Port:           *port,
-			KnownHostsFile: knownHostsPath,
-			CertFile:       issued.CertFile,
-			IdentityFile:   issued.IdentityFile,
-			User:           *user,
-			Host:           resolvedHost,
-			Target:         target,
-		})
-		cmd := exec.Command(sshPath, args...)
-		cmd.Stdin = stdin
-		cmd.Stdout = stdout
-		cmd.Stderr = stderr
-		if err := cmd.Run(); err != nil {
-			return printCLIError(stderr, err)
-		}
-		return 0
-
 	default:
 		fmt.Fprintf(stderr, "error: unknown ssh subcommand %q\n\n", argv[0])
 		printSSHUsage(stderr)
 		return 2
+	}
+}
+
+func cmdConnect(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	return cmdConnectCommand(cfg, "connect", argv, stdin, stdout, stderr)
+}
+
+func cmdSSHConnect(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	return cmdConnectCommand(cfg, "ssh connect", argv, stdin, stdout, stderr)
+}
+
+func cmdConnectCommand(cfg cliConfig, commandName string, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(argv) > 0 && isHelpWord(argv[0]) {
+		printConnectUsage(stdout, commandName)
+		return 0
+	}
+	request, code, done := parseSSHConnectRequest(commandName, argv, stderr)
+	if done {
+		return code
+	}
+	client, session, err := cfg.requireAuthenticatedClient()
+	if err != nil {
+		return printCLIError(stderr, err)
+	}
+	return runSSHConnect(client, session, cfg.SessionFile, request, stdin, stdout, stderr)
+}
+
+func parseSSHConnectRequest(commandName string, argv []string, stderr io.Writer) (sshConnectRequest, int, bool) {
+	fs := flag.NewFlagSet(commandName, flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	fs.Usage = func() {
+		printConnectUsage(fs.Output(), commandName)
+		fmt.Fprintln(fs.Output())
+		fmt.Fprintln(fs.Output(), "Flags:")
+		fs.PrintDefaults()
+	}
+	spaceRef := fs.String("space", "", "space ID or exact space name to target")
+	host := fs.String("host", "", "SSH host name")
+	user := fs.String("user", envOrDefault("SPACES_SSH_LOGIN_USER", "spaces-room"), "SSH login user")
+	port := fs.Int("port", parseIntEnv("SPACES_SSH_PORT", 22), "SSH port")
+	identityFile := fs.String("identity-file", "", "SSH private key path; defaults to ~/.ssh/id_ed25519_spaces and generates it if needed")
+	knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
+	certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
+	remoteCommand := fs.String("command", "", "optional command to run inside the user Room")
+	if len(argv) > 0 && !strings.HasPrefix(argv[0], "-") && !isHelpWord(argv[0]) {
+		argv = append([]string{"--space", argv[0]}, argv[1:]...)
+	}
+	if err := fs.Parse(argv); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return sshConnectRequest{}, 0, true
+		}
+		return sshConnectRequest{}, 2, true
+	}
+	if extra := fs.Args(); len(extra) > 0 {
+		fmt.Fprintf(stderr, "error: unexpected arguments: %s\n\n", strings.Join(extra, " "))
+		fs.Usage()
+		return sshConnectRequest{}, 2, true
+	}
+	request := sshConnectRequest{
+		SpaceRef:       *spaceRef,
+		Host:           *host,
+		User:           *user,
+		Port:           *port,
+		IdentityFile:   *identityFile,
+		KnownHostsFile: *knownHostsFile,
+		CertTTL:        *certTTL,
+		RemoteCommand:  *remoteCommand,
+	}
+	return request, 0, false
+}
+
+func printConnectUsage(w io.Writer, commandName string) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintf(w, "  spaces %s [SPACE] [flags]\n", commandName)
+	fmt.Fprintf(w, "  spaces %s --space SPACE [flags]\n", commandName)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "If SPACE is omitted, the CLI uses the saved default Space or the only Space you can access.")
+}
+
+func runSSHConnect(client apiClient, session *localSession, sessionFile string, request sshConnectRequest, stdin io.Reader, stdout, stderr io.Writer) int {
+	space, err := resolveConnectSpace(client, session, request.SpaceRef)
+	if err != nil {
+		return printCLIError(stderr, err)
+	}
+	validSpaceID, err := validateSSHSpaceID(space.ID)
+	if err != nil {
+		return printCLIError(stderr, err)
+	}
+	resolvedHost, err := resolveSSHHost(request.Host, client.BaseURL)
+	if err != nil {
+		return printCLIError(stderr, err)
+	}
+	knownHostsPath, err := ensureSSHKnownHost(client, resolvedHost, request.Port, request.KnownHostsFile)
+	if err != nil {
+		return printCLIError(stderr, err)
+	}
+	issued, err := issueSSHCert(client, request.IdentityFile, request.User, request.CertTTL)
+	if err != nil {
+		return printCLIError(stderr, err)
+	}
+	warnSessionUpdate(stderr, "failed to save default space", setSessionDefaultSpace(sessionFile, session, validSpaceID))
+	sshPath, err := resolveSSHBinary()
+	if err != nil {
+		return printCLIError(stderr, err)
+	}
+	target := validSpaceID
+	if strings.TrimSpace(request.RemoteCommand) != "" {
+		target = target + " -- " + request.RemoteCommand
+	}
+	args := buildSSHConnectArgs(sshConnectOptions{
+		Port:           request.Port,
+		KnownHostsFile: knownHostsPath,
+		CertFile:       issued.CertFile,
+		IdentityFile:   issued.IdentityFile,
+		User:           request.User,
+		Host:           resolvedHost,
+		Target:         target,
+	})
+	cmd := exec.Command(sshPath, args...)
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		return printCLIError(stderr, err)
+	}
+	return 0
+}
+
+func resolveConnectSpace(client apiClient, session *localSession, raw string) (spaceRecord, error) {
+	if strings.TrimSpace(raw) != "" {
+		return resolveSpaceRef(client, raw)
+	}
+	spaces, err := listSpaces(client)
+	if err != nil {
+		return spaceRecord{}, err
+	}
+	defaultSpace := ""
+	if session != nil {
+		defaultSpace = strings.TrimSpace(session.DefaultSpace)
+	}
+	if defaultSpace != "" {
+		for i := range spaces {
+			if strings.TrimSpace(spaces[i].ID) == defaultSpace {
+				return spaces[i], nil
+			}
+		}
+		if len(spaces) == 1 {
+			return spaces[0], nil
+		}
+		if len(spaces) == 0 {
+			return spaceRecord{}, fmt.Errorf("saved default space %q is no longer available and no Spaces are visible", defaultSpace)
+		}
+		return spaceRecord{}, fmt.Errorf("saved default space %q is no longer available; run 'spaces connect SPACE' or pass --space", defaultSpace)
+	}
+	switch len(spaces) {
+	case 0:
+		return spaceRecord{}, errors.New("no Spaces are available for this account")
+	case 1:
+		return spaces[0], nil
+	default:
+		return spaceRecord{}, errors.New("multiple Spaces are available; run 'spaces connect SPACE' or pass --space once to set a default")
 	}
 }
 

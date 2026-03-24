@@ -106,6 +106,44 @@ func TestAuthLoginUsesEnvironmentBaseURL(t *testing.T) {
 	}
 }
 
+func TestRootLoginAliasAcceptsPositionalEmail(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authLogin": {
+			Body: map[string]any{
+				"ok":            true,
+				"email":         "alice@example.com",
+				"session_token": "sess_test",
+			},
+			Assert: func(t *testing.T, _ *http.Request, body []byte) {
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("json.Unmarshal failed: %v", err)
+				}
+				if payload["email"] != "alice@example.com" || payload["key"] != "auth_test" {
+					t.Fatalf("unexpected login payload: %+v", payload)
+				}
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	authKeyFile := writeAuthKeyFile(t, t.TempDir(), "auth_test")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--base-url", server.server.URL, "--session-file", sessionFile, "login", "alice@example.com", "--key-file", authKeyFile}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("login code=%d stderr=%s", code, stderr.String())
+	}
+
+	session, err := loadSession(sessionFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session == nil || session.Email != "alice@example.com" {
+		t.Fatalf("saved session = %#v", session)
+	}
+}
+
 func TestSpaceIssueMemberAuthKey(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
 		"issueSpaceMemberAuthKey": {
@@ -420,6 +458,13 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	if strings.Contains(got, "StrictHostKeyChecking=accept-new") {
 		t.Fatalf("ssh args still allow first-use trust:\n%s", got)
 	}
+	session, err := loadSession(sessionFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session == nil || session.DefaultSpace != "sp_123" {
+		t.Fatalf("DefaultSpace = %#v, want sp_123", session)
+	}
 	const knownHostsPrefix = "UserKnownHostsFile="
 	index := strings.Index(got, knownHostsPrefix)
 	if index < 0 {
@@ -437,6 +482,119 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 	}
 	if !strings.Contains(string(knownHostsData), "cell.example.com ssh-ed25519 AAAA_FAKE_HOST_KEY") {
 		t.Fatalf("known_hosts missing fetched host key:\n%s", string(knownHostsData))
+	}
+}
+
+func TestRootConnectUsesOnlyVisibleSpaceAndPersistsDefault(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"listSpaces": {
+			Body: map[string]any{
+				"ok": true,
+				"spaces": []any{
+					map[string]any{
+						"id":                "sp_123",
+						"name":              "alpha",
+						"role":              "admin",
+						"owner_user_id":     1,
+						"created_at":        "2026-01-01T00:00:00Z",
+						"cpu_millis":        4000,
+						"memory_mib":        8192,
+						"disk_mb":           10240,
+						"network_egress_mb": 1024,
+						"llm_tokens_limit":  100000,
+						"llm_tokens_used":   0,
+						"actor_cpu_millis":  4000,
+						"actor_memory_mib":  8192,
+						"actor_disk_mb":     10240,
+						"actor_network_mb":  1024,
+						"actor_llm_tokens":  100000,
+						"byok_bytes_used":   0,
+						"runtime_state":     "running",
+						"runtime_meta":      "",
+					},
+				},
+			},
+		},
+		"listSSHKeys": {
+			Body: map[string]any{
+				"ok":   true,
+				"keys": []any{},
+			},
+		},
+		"addSSHKey": {
+			Body: map[string]any{
+				"ok": true,
+				"key": map[string]any{
+					"id":          1,
+					"user_id":     1,
+					"user_email":  "alice@example.com",
+					"name":        "id_ed25519",
+					"public_key":  "ssh-ed25519 AAAATEST alice@example.com",
+					"fingerprint": "SHA256:test",
+					"created_at":  "2026-01-01T00:00:00Z",
+				},
+			},
+		},
+		"sshKnownHosts": {
+			Body: map[string]any{
+				"ok":               true,
+				"host":             "cell.example.com",
+				"port":             22,
+				"public_key":       "ssh-ed25519 AAAA_FAKE_HOST_KEY",
+				"known_hosts_line": "cell.example.com ssh-ed25519 AAAA_FAKE_HOST_KEY",
+			},
+		},
+		"issueSSHCert": {
+			Body: map[string]any{
+				"ok":          true,
+				"fingerprint": "SHA256:test",
+				"principal":   "spaces-room",
+				"expires_at":  "2026-03-30T00:00:00Z",
+				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
+			},
+		},
+	})
+
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "session.json")
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
+		t.Fatal(err)
+	}
+
+	identityFile := filepath.Join(tmpDir, "id_ed25519")
+	if err := os.WriteFile(identityFile, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(identityFile+".pub", []byte("ssh-ed25519 AAAATEST alice@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sshArgsFile := filepath.Join(tmpDir, "ssh-args.txt")
+	sshBin := filepath.Join(tmpDir, "fake-ssh.sh")
+	if err := os.WriteFile(sshBin, []byte("#!/bin/sh\nprintf '%s\n' \"$@\" >\""+sshArgsFile+"\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SPACES_SSH_BIN", sshBin)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "connect", "--host", "cell.example.com", "--identity-file", identityFile}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("connect code=%d stderr=%s", code, stderr.String())
+	}
+
+	sshArgs, err := os.ReadFile(sshArgsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(sshArgs), "sp_123") {
+		t.Fatalf("ssh args missing resolved default target:\n%s", string(sshArgs))
+	}
+	session, err := loadSession(sessionFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session == nil || session.DefaultSpace != "sp_123" {
+		t.Fatalf("DefaultSpace = %#v, want sp_123", session)
 	}
 }
 
@@ -749,7 +907,7 @@ func TestSpaceUpRequiresSpaceFlag(t *testing.T) {
 func TestSpaceCreateListUpDownDelete(t *testing.T) {
 	spaceBody := map[string]any{
 		"id": "sp_1", "name": "test-room", "role": "admin",
-		"owner_user_id":  1,
+		"owner_user_id": 1,
 		"runtime_state": "stopped", "runtime_meta": "",
 		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
@@ -772,7 +930,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 				"ok": true,
 				"space": map[string]any{
 					"id": "sp_1", "name": "test-room", "role": "admin",
-					"owner_user_id":  1,
+					"owner_user_id": 1,
 					"runtime_state": "running", "runtime_meta": "",
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
@@ -787,7 +945,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 				"ok": true,
 				"space": map[string]any{
 					"id": "sp_1", "name": "test-room", "role": "admin",
-					"owner_user_id":  1,
+					"owner_user_id": 1,
 					"runtime_state": "stopped", "runtime_meta": "",
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
@@ -815,6 +973,13 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "created space") {
 		t.Fatalf("stdout missing 'created space': %s", stdout.String())
+	}
+	session, err := loadSession(sessionFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session == nil || session.DefaultSpace != "sp_1" {
+		t.Fatalf("DefaultSpace = %#v, want sp_1", session)
 	}
 
 	// List
@@ -1131,6 +1296,21 @@ func TestHelpCommand(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Usage:") {
 		t.Fatalf("stdout missing usage text: %s", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "Shortcut Commands:") || !strings.Contains(stdout.String(), "\nCommands:\n") {
+		t.Fatalf("stdout missing section headers:\n%s", stdout.String())
+	}
+	loginIndex := strings.Index(stdout.String(), "\n  login EMAIL")
+	connectIndex := strings.Index(stdout.String(), "\n  connect [SPACE]")
+	authIndex := strings.Index(stdout.String(), "\n  auth login")
+	sshIndex := strings.Index(stdout.String(), "\n  ssh connect")
+	shortcutHeaderIndex := strings.Index(stdout.String(), "\nShortcut Commands:\n")
+	commandsHeaderIndex := strings.Index(stdout.String(), "\nCommands:\n")
+	if loginIndex < 0 || connectIndex < 0 || authIndex < 0 || sshIndex < 0 {
+		t.Fatalf("stdout missing expected commands:\n%s", stdout.String())
+	}
+	if shortcutHeaderIndex >= loginIndex || loginIndex >= connectIndex || connectIndex >= commandsHeaderIndex || commandsHeaderIndex >= authIndex || authIndex >= sshIndex {
+		t.Fatalf("help sections or ordering are wrong:\n%s", stdout.String())
+	}
 }
 
 func TestHelpCommandDoesNotRequireDefaultSessionPath(t *testing.T) {
@@ -1280,18 +1460,70 @@ func TestSSHRemoveKeyRequiresFingerprint(t *testing.T) {
 	}
 }
 
-func TestSSHConnectRequiresSpace(t *testing.T) {
+func TestSSHConnectRequiresExplicitSpaceWhenMultipleSpacesVisible(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"listSpaces": {
+			Body: map[string]any{
+				"ok": true,
+				"spaces": []any{
+					map[string]any{
+						"id":                "sp_123",
+						"name":              "alpha",
+						"role":              "admin",
+						"owner_user_id":     1,
+						"created_at":        "2026-01-01T00:00:00Z",
+						"cpu_millis":        4000,
+						"memory_mib":        8192,
+						"disk_mb":           10240,
+						"network_egress_mb": 1024,
+						"llm_tokens_limit":  100000,
+						"llm_tokens_used":   0,
+						"actor_cpu_millis":  4000,
+						"actor_memory_mib":  8192,
+						"actor_disk_mb":     10240,
+						"actor_network_mb":  1024,
+						"actor_llm_tokens":  100000,
+						"byok_bytes_used":   0,
+						"runtime_state":     "running",
+						"runtime_meta":      "",
+					},
+					map[string]any{
+						"id":                "sp_456",
+						"name":              "beta",
+						"role":              "admin",
+						"owner_user_id":     1,
+						"created_at":        "2026-01-01T00:00:00Z",
+						"cpu_millis":        4000,
+						"memory_mib":        8192,
+						"disk_mb":           10240,
+						"network_egress_mb": 1024,
+						"llm_tokens_limit":  100000,
+						"llm_tokens_used":   0,
+						"actor_cpu_millis":  4000,
+						"actor_memory_mib":  8192,
+						"actor_disk_mb":     10240,
+						"actor_network_mb":  1024,
+						"actor_llm_tokens":  100000,
+						"byok_bytes_used":   0,
+						"runtime_state":     "running",
+						"runtime_meta":      "",
+					},
+				},
+			},
+		},
+	})
+
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
-	if err := saveSession(sessionFile, localSession{BaseURL: "http://localhost", Email: "a@b.com", SessionToken: "sess"}); err != nil {
+	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "a@b.com", SessionToken: "sess"}); err != nil {
 		t.Fatal(err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"--session-file", sessionFile, "ssh", "connect"}, &stdout, &stderr)
 	if code == 0 {
-		t.Fatal("expected non-zero exit code when --space is missing")
+		t.Fatal("expected non-zero exit code when multiple Spaces are visible and no default exists")
 	}
-	if !strings.Contains(stderr.String(), "--space is required") {
+	if !strings.Contains(stderr.String(), "multiple Spaces are available") {
 		t.Fatalf("stderr missing expected message: %s", stderr.String())
 	}
 }
