@@ -38,7 +38,7 @@ access another's environment.
   and secrets never appear inside any Room.
 
 Craken Spaces is currently invite-only.
-[Join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) to get early access.
+[Join the waitlist](https://spaces.borca.ai) to get early access.
 
 ## What is this CLI?
 
@@ -67,7 +67,7 @@ sh install.sh
 
 Admins create Spaces, invite members, and control resource
 budgets. To get your admin auth key,
-[join the waitlist](https://forms.gle/daowdtLnDBCmRwxH8) and you will
+[join the waitlist](https://spaces.borca.ai) and you will
 receive one when your access is approved.
 
 If you are a **Space admin**, your normal workflow is:
