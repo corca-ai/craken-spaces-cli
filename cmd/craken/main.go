@@ -76,6 +76,8 @@ func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int 
 		return cmdSSH(cfg, args[1:], stdin, stdout, stderr)
 	case "connect":
 		return cmdConnect(cfg, args[1:], stdin, stdout, stderr)
+	case "recover":
+		return cmdAuthRecover(cfg, args[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unknown command %q\n\n", args[0])
 		printUsage(stderr)
@@ -98,6 +100,9 @@ func cmdAuth(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Wr
 
 	case "logout":
 		return cmdAuthLogout(cfg, stdout, stderr)
+
+	case "recover":
+		return cmdAuthRecover(cfg, argv[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unknown auth subcommand %q\n\n", argv[0])
 		printAuthUsage(stderr)
@@ -253,6 +258,150 @@ func cmdAuthLogout(cfg cliConfig, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func cmdAuthRecover(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(argv) > 0 && isHelpWord(argv[0]) {
+		printRecoverUsage(stdout)
+		return 0
+	}
+
+	fs := flag.NewFlagSet("auth recover", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	fs.Usage = func() { printRecoverUsage(fs.Output()) }
+	email := fs.String("email", "", "user email address")
+	code := fs.String("code", "", "6-digit recovery code from email")
+	codeStdin := fs.Bool("code-stdin", false, "read recovery code from stdin")
+
+	// Accept email as positional argument.
+	if len(argv) > 0 && !strings.HasPrefix(argv[0], "-") && !isHelpWord(argv[0]) {
+		argv = append([]string{"--email", argv[0]}, argv[1:]...)
+	}
+	if err := fs.Parse(argv); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	if extra := fs.Args(); len(extra) > 0 {
+		fmt.Fprintf(stderr, "error: unexpected arguments: %s\n\n", strings.Join(extra, " "))
+		fs.Usage()
+		return 2
+	}
+	if strings.TrimSpace(*email) == "" {
+		fmt.Fprintln(stderr, "error: email is required")
+		fs.Usage()
+		return 2
+	}
+	if strings.TrimSpace(*code) != "" && *codeStdin {
+		fmt.Fprintln(stderr, "error: use only one of --code or --code-stdin")
+		return 2
+	}
+
+	baseURL, err := cfg.requireBaseURL()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %s\n", sanitizeTerminalText(err.Error()))
+		return 2
+	}
+	client := apiClient{BaseURL: baseURL}
+
+	recoveryCode, rc := obtainRecoveryCode(client, *email, strings.TrimSpace(*code), *codeStdin, stdin, stdout, stderr)
+	if rc >= 0 {
+		return rc
+	}
+
+	// Redeem the code.
+	var response struct {
+		OK           bool   `json:"ok"`
+		Error        string `json:"error"`
+		Email        string `json:"email"`
+		SessionToken string `json:"session_token"`
+	}
+	if err := client.doJSON("POST", "/api/v1/auth/recover/redeem", map[string]any{
+		"email": *email,
+		"code":  recoveryCode,
+	}, &response); err != nil {
+		return printCLIError(stderr, err)
+	}
+	if err := saveSession(cfg.SessionFile, localSession{
+		BaseURL:      baseURL,
+		Email:        response.Email,
+		SessionToken: response.SessionToken,
+	}); err != nil {
+		return printCLIError(stderr, err)
+	}
+	fmt.Fprintf(stdout, "authenticated as %s\n", sanitizeTerminalText(response.Email))
+	fmt.Fprintf(stdout, "session saved to %s\n", sanitizeTerminalText(cfg.SessionFile))
+	return 0
+}
+
+// obtainRecoveryCode resolves the recovery code from flags, stdin, or an
+// interactive prompt. It returns the code and a negative rc when the caller
+// should continue, or a non-negative rc the caller should return immediately.
+func obtainRecoveryCode(client apiClient, email, flagCode string, codeStdin bool, stdin io.Reader, stdout, stderr io.Writer) (code string, rc int) {
+	if flagCode != "" {
+		return flagCode, -1
+	}
+	if codeStdin {
+		data, err := io.ReadAll(stdin)
+		if err != nil {
+			return "", printCLIError(stderr, err)
+		}
+		code := strings.TrimSpace(string(data))
+		if code == "" {
+			fmt.Fprintln(stderr, "error: recovery code is required")
+			return "", 2
+		}
+		return code, -1
+	}
+
+	// No code supplied via flag or stdin — request one from the server.
+	if err := requestRecoveryCode(client, email); err != nil {
+		return "", printCLIError(stderr, err)
+	}
+	fmt.Fprintln(stdout, "If that email is registered, a recovery code has been sent. Check your inbox.")
+
+	// Interactive terminal: prompt for the code inline.
+	if file, ok := stdin.(stdinWithFD); ok && isTerminalFD(int(file.Fd())) {
+		origTerminalStatusSink := terminalStatusSink
+		terminalStatusSink = stderr
+		defer func() { terminalStatusSink = origTerminalStatusSink }()
+		payload, promptErr := readMaskedTerminalKeyFD(int(file.Fd()), "Recovery code: ", terminalStatusSink)
+		if promptErr != nil {
+			return "", printCLIError(stderr, promptErr)
+		}
+		code := strings.TrimSpace(string(payload))
+		if code == "" {
+			fmt.Fprintln(stderr, "error: recovery code is required")
+			return "", 2
+		}
+		return code, -1
+	}
+
+	// Non-interactive: tell the user how to finish.
+	fmt.Fprintf(stdout, "Then run: spaces auth recover %s --code CODE\n", sanitizeTerminalText(email))
+	return "", 0
+}
+
+func requestRecoveryCode(client apiClient, email string) error {
+	var resp struct {
+		OK      bool   `json:"ok"`
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	return client.doJSON("POST", "/api/v1/auth/recover", map[string]any{
+		"email": email,
+	}, &resp)
+}
+
+func printRecoverUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  spaces auth recover EMAIL                Request a recovery code")
+	fmt.Fprintln(w, "  spaces auth recover EMAIL --code CODE    Redeem a recovery code")
+	fmt.Fprintln(w, "  spaces recover EMAIL                     Shortcut")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "On an interactive terminal, the code is prompted after requesting.")
+	fmt.Fprintln(w, "For non-interactive use, pass --code or --code-stdin.")
+}
+
 func cmdWhoAmI(cfg cliConfig, stdout, stderr io.Writer) int {
 	client, session, err := cfg.requireAuthenticatedClient()
 	if err != nil {
@@ -278,6 +427,7 @@ func printUsage(w io.Writer) {
 
 Shortcut Commands:
   login EMAIL                    Log in with email and auth key
+  recover EMAIL                  Recover a lost session via email
   create SPACE                   Create a new Space
   list                           List Spaces you have access to
   connect [SPACE]                Connect to a Space; uses the default Space when omitted
@@ -285,6 +435,7 @@ Shortcut Commands:
 Commands:
   auth login                     Log in with email and auth key
   auth logout                    End session and remove local credentials
+  auth recover EMAIL             Recover a lost session via email code
   whoami                         Show the currently authenticated user
   space create                   Create a new Space
   space list                     List Spaces you have access to
@@ -319,6 +470,7 @@ func printAuthUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  spaces auth login [EMAIL] [--key-file PATH | --key-stdin]")
 	fmt.Fprintln(w, "  spaces auth logout")
+	fmt.Fprintln(w, "  spaces auth recover EMAIL [--code CODE | --code-stdin]")
 }
 
 func printLoginUsage(w io.Writer) {

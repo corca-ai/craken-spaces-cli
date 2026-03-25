@@ -349,7 +349,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used":   0,
+						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -508,7 +508,7 @@ func TestRootConnectUsesOnlyVisibleSpaceAndPersistsDefault(t *testing.T) {
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used":   0,
+						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -750,7 +750,7 @@ func TestSSHClientConfigAcceptsExactSpaceName(t *testing.T) {
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used":   0,
+						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -918,7 +918,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 		"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
 	server := newContractFakeServer(t, map[string]fakeOperation{
@@ -941,7 +941,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
 					"created_at": "2026-01-01T00:00:00Z",
 				},
 			},
@@ -956,7 +956,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
 					"created_at": "2026-01-01T00:00:00Z",
 				},
 			},
@@ -1041,7 +1041,7 @@ func TestRootCreateAndListShortcuts(t *testing.T) {
 		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 		"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0,
+		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
 	server := newContractFakeServer(t, map[string]fakeOperation{
@@ -1539,7 +1539,7 @@ func TestSSHConnectRequiresExplicitSpaceWhenMultipleSpacesVisible(t *testing.T) 
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used":   0,
+						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -1560,7 +1560,7 @@ func TestSSHConnectRequiresExplicitSpaceWhenMultipleSpacesVisible(t *testing.T) 
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used":   0,
+						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -1696,5 +1696,115 @@ func TestProtocolFileMatchesCrakenSpacesWhenPresent(t *testing.T) {
 	}
 	if !bytes.Equal(localData, managedData) {
 		t.Fatalf("public API contract is out of sync with sibling craken-spaces checkout")
+	}
+}
+
+func TestAuthRecoverRequestOnly(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authRecover": {
+			Body: map[string]any{
+				"ok":      true,
+				"message": "if that email is registered, a recovery code has been sent",
+			},
+			Assert: func(t *testing.T, _ *http.Request, body []byte) {
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("json.Unmarshal failed: %v", err)
+				}
+				if payload["email"] != "alice@example.com" {
+					t.Fatalf("unexpected email: %+v", payload)
+				}
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	var stdout, stderr bytes.Buffer
+	// Non-interactive: should request code and print instructions.
+	code := runWithStdin([]string{
+		"--base-url", server.server.URL,
+		"--session-file", sessionFile,
+		"auth", "recover", "alice@example.com",
+	}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("auth recover code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "recovery code has been sent") {
+		t.Fatalf("unexpected stdout: %s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "--code CODE") {
+		t.Fatalf("expected hint about --code, got: %s", stdout.String())
+	}
+}
+
+func TestAuthRecoverWithCode(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authRecoverRedeem": {
+			Body: map[string]any{
+				"ok":            true,
+				"email":         "alice@example.com",
+				"session_token": "sess_recovered",
+			},
+			Assert: func(t *testing.T, _ *http.Request, body []byte) {
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("json.Unmarshal failed: %v", err)
+				}
+				if payload["email"] != "alice@example.com" {
+					t.Fatalf("unexpected email: %+v", payload)
+				}
+				if payload["code"] != "123456" {
+					t.Fatalf("unexpected code: %+v", payload)
+				}
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	var stdout, stderr bytes.Buffer
+	code := runWithStdin([]string{
+		"--base-url", server.server.URL,
+		"--session-file", sessionFile,
+		"auth", "recover", "alice@example.com", "--code", "123456",
+	}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("auth recover redeem code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "authenticated as alice@example.com") {
+		t.Fatalf("unexpected stdout: %s", stdout.String())
+	}
+
+	// Verify session was saved.
+	session, err := loadSession(sessionFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session == nil || session.SessionToken != "sess_recovered" {
+		t.Fatalf("session not saved correctly: %+v", session)
+	}
+}
+
+func TestRecoverShortcut(t *testing.T) {
+	server := newContractFakeServer(t, map[string]fakeOperation{
+		"authRecover": {
+			Body: map[string]any{
+				"ok":      true,
+				"message": "if that email is registered, a recovery code has been sent",
+			},
+		},
+	})
+
+	sessionFile := filepath.Join(t.TempDir(), "session.json")
+	var stdout, stderr bytes.Buffer
+	code := runWithStdin([]string{
+		"--base-url", server.server.URL,
+		"--session-file", sessionFile,
+		"recover", "alice@example.com",
+	}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("recover shortcut code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "recovery code has been sent") {
+		t.Fatalf("unexpected stdout: %s", stdout.String())
 	}
 }

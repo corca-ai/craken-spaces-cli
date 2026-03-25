@@ -29,6 +29,48 @@ paths:
                 $ref: '#/components/schemas/SessionResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/auth/recover:
+    post:
+      operationId: authRecover
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRecoverRequest'
+      responses:
+        '200':
+          description: Recovery code requested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthRecoverResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/auth/recover/redeem:
+    post:
+      operationId: authRecoverRedeem
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRecoverRedeemRequest'
+      responses:
+        '200':
+          description: Recovered session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
   /api/v1/auth/logout:
     post:
       operationId: authLogout
@@ -347,6 +389,35 @@ components:
         key:
           type: string
           minLength: 1
+    AuthRecoverRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    AuthRecoverResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+    AuthRecoverRedeemRequest:
+      type: object
+      additionalProperties: false
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 1
     SessionResponse:
       type: object
       additionalProperties: false
@@ -405,6 +476,7 @@ components:
         - actor_network_mb
         - actor_llm_tokens
         - byok_bytes_used
+        - byok_requests_per_hour
         - runtime_state
         - runtime_meta
       properties:
@@ -444,6 +516,8 @@ components:
         byok_bytes_used:
           type: integer
           format: int64
+        byok_requests_per_hour:
+          type: integer
         runtime_state:
           type: string
         runtime_meta:
