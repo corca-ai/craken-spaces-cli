@@ -24,20 +24,6 @@ type spaceRecord struct {
 	CreatedAt       string `json:"created_at"`
 }
 
-type memberAuthKeyRecord struct {
-	ID              int64  `json:"id"`
-	InviteeEmail    string `json:"invitee_email"`
-	IssuedAt        string `json:"issued_at"`
-	ExpiresAt       string `json:"expires_at"`
-	RedeemedAt      string `json:"redeemed_at"`
-	RevokedAt       string `json:"revoked_at"`
-	CPUMillis       int    `json:"cpu_millis"`
-	MemoryMiB       int    `json:"memory_mib"`
-	DiskMB          int    `json:"disk_mb"`
-	NetworkEgressMB int    `json:"network_egress_mb"`
-	LLMTokensLimit  int    `json:"llm_tokens_limit"`
-}
-
 func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //nolint:gocognit // CLI command dispatcher
 	if len(argv) == 0 || isHelpWord(argv[0]) {
 		printSpaceUsage(stdout)
@@ -146,132 +132,6 @@ func cmdSpace(cfg cliConfig, argv []string, stdout, stderr io.Writer) int { //no
 			warnSessionUpdate(stderr, "failed to clear default space", clearSessionDefaultSpace(cfg.SessionFile, session))
 		}
 		fmt.Fprintf(stdout, "deleted space %s\n", sanitizeTerminalText(space.ID))
-		return 0
-
-	case "issue-member-auth-key":
-		fs := flag.NewFlagSet("space issue-member-auth-key", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		spaceRef := fs.String("space", "", "space ID or exact space name")
-		email := fs.String("email", "", "space member email address")
-		authKeyFile := fs.String("auth-key-file", "", "path to securely write the issued auth key")
-		expiresHours := fs.Int("expires-hours", 24*7, "lifetime in hours")
-		cpuMillis := fs.Int("cpu-millis", 1000, "delegated CPU ceiling")
-		memoryMiB := fs.Int("memory-mib", 1024, "delegated memory ceiling")
-		diskMB := fs.Int("disk-mb", 1024, "delegated disk ceiling")
-		networkMB := fs.Int("network-egress-mb", 256, "delegated network ceiling")
-		llmTokens := fs.Int("llm-tokens-limit", 10000, "delegated monthly LLM token budget")
-		if err := fs.Parse(argv[1:]); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return 0
-			}
-			return 2
-		}
-		if strings.TrimSpace(*spaceRef) == "" || strings.TrimSpace(*email) == "" || strings.TrimSpace(*authKeyFile) == "" {
-			fmt.Fprintln(stderr, "error: --space, --email, and --auth-key-file are required")
-			return 2
-		}
-		space, err := resolveSpaceRef(client, *spaceRef)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
-		var response struct {
-			OK      bool                `json:"ok"`
-			Error   string              `json:"error"`
-			AuthKey memberAuthKeyRecord `json:"auth_key"`
-			Key     string              `json:"key"`
-		}
-		if err := client.doJSON("POST", "/api/v1/spaces/"+escapedSpaceID+"/member-auth-keys", map[string]any{
-			"email":             *email,
-			"expires_hours":     *expiresHours,
-			"cpu_millis":        *cpuMillis,
-			"memory_mib":        *memoryMiB,
-			"disk_mb":           *diskMB,
-			"network_egress_mb": *networkMB,
-			"llm_tokens_limit":  *llmTokens,
-		}, &response); err != nil {
-			return printCLIError(stderr, err)
-		}
-		if err := writeSecretFile(*authKeyFile, response.Key); err != nil {
-			return printCLIError(stderr, err)
-		}
-		fmt.Fprintf(stdout, "issued space member auth key %d for %s\n", response.AuthKey.ID, sanitizeTerminalText(response.AuthKey.InviteeEmail))
-		fmt.Fprintf(stdout, "auth_key_file=%s\n", sanitizeTerminalText(*authKeyFile))
-		fmt.Fprintf(stdout, "expires_at=%s\n", sanitizeTerminalText(response.AuthKey.ExpiresAt))
-		return 0
-
-	case "member-auth-keys":
-		fs := flag.NewFlagSet("space member-auth-keys", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		spaceRef := fs.String("space", "", "space ID or exact space name")
-		if err := fs.Parse(argv[1:]); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return 0
-			}
-			return 2
-		}
-		if strings.TrimSpace(*spaceRef) == "" {
-			fmt.Fprintln(stderr, "error: --space is required")
-			return 2
-		}
-		space, err := resolveSpaceRef(client, *spaceRef)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
-		var response struct {
-			OK       bool                  `json:"ok"`
-			Error    string                `json:"error"`
-			AuthKeys []memberAuthKeyRecord `json:"auth_keys"`
-		}
-		if err := client.doJSON("GET", "/api/v1/spaces/"+escapedSpaceID+"/member-auth-keys", nil, &response); err != nil {
-			return printCLIError(stderr, err)
-		}
-		rows := make([][]string, 0, len(response.AuthKeys))
-		for i := range response.AuthKeys {
-			k := &response.AuthKeys[i]
-			status := "active"
-			switch {
-			case strings.TrimSpace(k.RevokedAt) != "":
-				status = "revoked"
-			case strings.TrimSpace(k.RedeemedAt) != "":
-				status = "redeemed"
-			}
-			rows = append(rows, []string{
-				strconv.FormatInt(k.ID, 10),
-				k.InviteeEmail,
-				status,
-				k.ExpiresAt,
-				k.IssuedAt,
-			})
-		}
-		printTable(stdout, []string{"id", "email", "status", "expires_at", "issued_at"}, rows)
-		return 0
-
-	case "revoke-member-auth-key":
-		fs := flag.NewFlagSet("space revoke-member-auth-key", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		spaceRef := fs.String("space", "", "space ID or exact space name")
-		authKeyID := fs.Int64("id", 0, "auth key ID")
-		if err := fs.Parse(argv[1:]); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return 0
-			}
-			return 2
-		}
-		if strings.TrimSpace(*spaceRef) == "" || *authKeyID <= 0 {
-			fmt.Fprintln(stderr, "error: --space and --id are required")
-			return 2
-		}
-		space, err := resolveSpaceRef(client, *spaceRef)
-		if err != nil {
-			return printCLIError(stderr, err)
-		}
-		escapedSpaceID := url.PathEscape(strings.TrimSpace(space.ID))
-		if err := client.doJSON("DELETE", fmt.Sprintf("/api/v1/spaces/%s/member-auth-keys/%d", escapedSpaceID, *authKeyID), nil, nil); err != nil {
-			return printCLIError(stderr, err)
-		}
-		fmt.Fprintf(stdout, "revoked space member auth key %d\n", *authKeyID)
 		return 0
 
 	default:
@@ -400,9 +260,6 @@ Subcommands:
   up                        Start a Space (--space ID or exact name required)
   down                      Stop a Space (--space ID or exact name required)
   delete                    Permanently delete a Space (--space ID or exact name required)
-  issue-member-auth-key     Invite a member with a scoped auth key
-  member-auth-keys          List issued member auth keys for a Space
-  revoke-member-auth-key    Revoke a member auth key
 
 Use "spaces space <subcommand> -h" for flag details.
 `)

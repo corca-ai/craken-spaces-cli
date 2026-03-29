@@ -3,13 +3,28 @@ info:
   title: Craken Spaces Public Control-Plane API
   version: v1
   description: |
-    Narrow external HTTP API used by the `spaces` CLI for alpha user and
+    Narrow external HTTP API used by the `spaces` CLI for user and
     space-admin flows.
 servers:
   - url: /
 security:
   - bearerAuth: []
 paths:
+  /api/v1/apply:
+    post:
+      operationId: apply
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/OkResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
   /api/v1/auth/login:
     post:
       operationId: authLogin
@@ -170,56 +185,6 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/spaces/{spaceId}/member-auth-keys:
-    get:
-      operationId: listSpaceMemberAuthKeys
-      parameters:
-        - $ref: '#/components/parameters/SpaceId'
-      responses:
-        '200':
-          description: Space member auth keys
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberAuthKeysResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
-        '401':
-          $ref: '#/components/responses/ErrorResponse'
-    post:
-      operationId: issueSpaceMemberAuthKey
-      parameters:
-        - $ref: '#/components/parameters/SpaceId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IssueMemberAuthKeyRequest'
-      responses:
-        '200':
-          description: Issued space member auth key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberAuthKeyResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
-        '401':
-          $ref: '#/components/responses/ErrorResponse'
-  /api/v1/spaces/{spaceId}/member-auth-keys/{authKeyId}:
-    delete:
-      operationId: revokeSpaceMemberAuthKey
-      parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - $ref: '#/components/parameters/AuthKeyId'
-      responses:
-        '200':
-          $ref: '#/components/responses/OkResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
-        '401':
-          $ref: '#/components/responses/ErrorResponse'
   /api/v1/ssh/keys:
     get:
       operationId: listSSHKeys
@@ -316,14 +281,6 @@ components:
       schema:
         type: string
         minLength: 1
-    AuthKeyId:
-      name: authKeyId
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-        minimum: 1
     Fingerprint:
       name: fingerprint
       in: path
@@ -377,6 +334,18 @@ components:
           type: boolean
           enum: [false]
         error:
+          type: string
+    ApplyRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+        occupation:
+          type: string
+        use:
           type: string
     AuthLoginRequest:
       type: object
@@ -475,8 +444,8 @@ components:
         - actor_disk_mb
         - actor_network_mb
         - actor_llm_tokens
-        - byok_bytes_used
-        - byok_requests_per_hour
+        - guardian_bytes_used
+        - guardian_requests_per_hour
         - runtime_state
         - runtime_meta
       properties:
@@ -513,10 +482,10 @@ components:
           type: integer
         actor_llm_tokens:
           type: integer
-        byok_bytes_used:
+        guardian_bytes_used:
           type: integer
           format: int64
-        byok_requests_per_hour:
+        guardian_requests_per_hour:
           type: integer
         runtime_state:
           type: string
@@ -557,111 +526,6 @@ components:
       properties:
         name:
           type: string
-        cpu_millis:
-          type: integer
-        memory_mib:
-          type: integer
-        disk_mb:
-          type: integer
-        network_egress_mb:
-          type: integer
-        llm_tokens_limit:
-          type: integer
-    SpaceMemberAuthKey:
-      type: object
-      additionalProperties: false
-      required:
-        - id
-        - space_id
-        - space_name
-        - issued_by_user_id
-        - issued_by_email
-        - invitee_email
-        - issued_at
-        - expires_at
-        - redeemed_at
-        - revoked_at
-        - cpu_millis
-        - memory_mib
-        - disk_mb
-        - network_egress_mb
-        - llm_tokens_limit
-      properties:
-        id:
-          type: integer
-          format: int64
-        space_id:
-          type: string
-        space_name:
-          type: string
-        issued_by_user_id:
-          type: integer
-          format: int64
-        issued_by_email:
-          type: string
-          format: email
-        invitee_email:
-          type: string
-          format: email
-        issued_at:
-          type: string
-        expires_at:
-          type: string
-        redeemed_at:
-          type: string
-        revoked_at:
-          type: string
-        cpu_millis:
-          type: integer
-        memory_mib:
-          type: integer
-        disk_mb:
-          type: integer
-        network_egress_mb:
-          type: integer
-        llm_tokens_limit:
-          type: integer
-    MemberAuthKeysResponse:
-      type: object
-      additionalProperties: false
-      required: [ok, auth_keys]
-      properties:
-        ok:
-          type: boolean
-          enum: [true]
-        auth_keys:
-          type: array
-          items:
-            $ref: '#/components/schemas/SpaceMemberAuthKey'
-    MemberAuthKeyResponse:
-      type: object
-      additionalProperties: false
-      required: [ok, auth_key, key]
-      properties:
-        ok:
-          type: boolean
-          enum: [true]
-        auth_key:
-          $ref: '#/components/schemas/SpaceMemberAuthKey'
-        key:
-          type: string
-    IssueMemberAuthKeyRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - email
-        - expires_hours
-        - cpu_millis
-        - memory_mib
-        - disk_mb
-        - network_egress_mb
-        - llm_tokens_limit
-      properties:
-        email:
-          type: string
-          format: email
-        expires_hours:
-          type: integer
         cpu_millis:
           type: integer
         memory_mib:

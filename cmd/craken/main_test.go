@@ -144,82 +144,6 @@ func TestRootLoginAliasAcceptsPositionalEmail(t *testing.T) {
 	}
 }
 
-func TestSpaceIssueMemberAuthKey(t *testing.T) {
-	server := newContractFakeServer(t, map[string]fakeOperation{
-		"issueSpaceMemberAuthKey": {
-			Body: map[string]any{
-				"ok": true,
-				"auth_key": map[string]any{
-					"id":                7,
-					"space_id":          "sp_123",
-					"space_name":        "alpha",
-					"issued_by_user_id": 1,
-					"issued_by_email":   "alice@example.com",
-					"invitee_email":     "bob@example.com",
-					"issued_at":         "2026-03-22T12:00:00Z",
-					"expires_at":        "2026-03-30T00:00:00Z",
-					"redeemed_at":       "",
-					"revoked_at":        "",
-					"cpu_millis":        1000,
-					"memory_mib":        1024,
-					"disk_mb":           1024,
-					"network_egress_mb": 256,
-					"llm_tokens_limit":  10000,
-				},
-				"key": "wmauth_test",
-			},
-			Assert: func(t *testing.T, req *http.Request, body []byte) {
-				if got := req.Header.Get("Authorization"); got != "Bearer sess_test" {
-					t.Fatalf("Authorization = %q", got)
-				}
-				var payload map[string]any
-				if err := json.Unmarshal(body, &payload); err != nil {
-					t.Fatalf("json.Unmarshal failed: %v", err)
-				}
-				if payload["email"] != "bob@example.com" {
-					t.Fatalf("unexpected issue-member-auth-key payload: %+v", payload)
-				}
-			},
-		},
-	})
-
-	tmpDir := t.TempDir()
-	sessionFile := filepath.Join(tmpDir, "session.json")
-	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
-		t.Fatal(err)
-	}
-	authKeyFile := filepath.Join(tmpDir, "issued.authkey")
-
-	var stdout, stderr bytes.Buffer
-	code := run([]string{
-		"--session-file", sessionFile,
-		"space", "issue-member-auth-key",
-		"--space", "sp_123",
-		"--email", "bob@example.com",
-		"--auth-key-file", authKeyFile,
-	}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("space issue-member-auth-key code=%d stderr=%s", code, stderr.String())
-	}
-	if got := stdout.String(); strings.Contains(got, "wmauth_test") {
-		t.Fatalf("stdout leaked auth key: %s", got)
-	}
-	issuedKey, err := os.ReadFile(authKeyFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.TrimSpace(string(issuedKey)) != "wmauth_test" {
-		t.Fatalf("auth key file contents=%q", string(issuedKey))
-	}
-	info, err := os.Stat(authKeyFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("auth key file perms=%#o", info.Mode().Perm())
-	}
-}
-
 func TestAuthLoginReadsKeyFromStdin(t *testing.T) {
 	server := newContractFakeServer(t, map[string]fakeOperation{
 		"authLogin": {
@@ -349,7 +273,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
+						"guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -389,7 +313,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 			Body: map[string]any{
 				"ok":          true,
 				"fingerprint": "SHA256:test",
-				"principal":   "spaces-room",
+				"principal":   "spaces-user",
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
 			},
@@ -401,8 +325,8 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 				if err := json.Unmarshal(body, &payload); err != nil {
 					t.Fatalf("json.Unmarshal failed: %v", err)
 				}
-				if payload["principal"] != "spaces-room" {
-					t.Fatalf("principal = %#v, want spaces-room", payload["principal"])
+				if payload["principal"] != "spaces-user" {
+					t.Fatalf("principal = %#v, want spaces-user", payload["principal"])
 				}
 				if payload["cert_ttl"] != "5m" {
 					t.Fatalf("cert_ttl = %#v, want 5m", payload["cert_ttl"])
@@ -450,7 +374,7 @@ func TestSSHConnectIssuesCertAndRunsLocalSSH(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(sshArgs)
-	for _, needle := range []string{"-o", "StrictHostKeyChecking=yes", "CertificateFile=" + sshCertificateFileForIdentity(identityFile), "-i", identityFile, "spaces-room@cell.example.com", "sp_123 -- echo hi"} {
+	for _, needle := range []string{"-o", "StrictHostKeyChecking=yes", "CertificateFile=" + sshCertificateFileForIdentity(identityFile), "-i", identityFile, "spaces-user@cell.example.com", "sp_123 -- echo hi"} {
 		if !strings.Contains(got, needle) {
 			t.Fatalf("ssh args missing %q:\n%s", needle, got)
 		}
@@ -508,7 +432,7 @@ func TestRootConnectUsesOnlyVisibleSpaceAndPersistsDefault(t *testing.T) {
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
+						"guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -548,7 +472,7 @@ func TestRootConnectUsesOnlyVisibleSpaceAndPersistsDefault(t *testing.T) {
 			Body: map[string]any{
 				"ok":          true,
 				"fingerprint": "SHA256:test",
-				"principal":   "spaces-room",
+				"principal":   "spaces-user",
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
 			},
@@ -630,7 +554,7 @@ func TestSSHConnectGeneratesManagedIdentityWhenMissing(t *testing.T) {
 			Body: map[string]any{
 				"ok":          true,
 				"fingerprint": "SHA256:generated",
-				"principal":   "spaces-room",
+				"principal":   "spaces-user",
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAA_GENERATED cert\n",
 			},
@@ -750,7 +674,7 @@ func TestSSHClientConfigAcceptsExactSpaceName(t *testing.T) {
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
+						"guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -918,7 +842,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 		"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
+		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
 	server := newContractFakeServer(t, map[string]fakeOperation{
@@ -941,7 +865,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
+					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 					"created_at": "2026-01-01T00:00:00Z",
 				},
 			},
@@ -956,7 +880,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 					"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 					"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 					"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
+					"actor_network_mb": 1024, "actor_llm_tokens": 100000, "guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 					"created_at": "2026-01-01T00:00:00Z",
 				},
 			},
@@ -1041,7 +965,7 @@ func TestRootCreateAndListShortcuts(t *testing.T) {
 		"cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
 		"network_egress_mb": 1024, "llm_tokens_used": 0, "llm_tokens_limit": 100000,
 		"actor_cpu_millis": 4000, "actor_memory_mib": 8192, "actor_disk_mb": 10240,
-		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "byok_bytes_used": 0, "byok_requests_per_hour": 0,
+		"actor_network_mb": 1024, "actor_llm_tokens": 100000, "guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
 	server := newContractFakeServer(t, map[string]fakeOperation{
@@ -1174,7 +1098,7 @@ func TestSSHIssueCert(t *testing.T) {
 			Body: map[string]any{
 				"ok":          true,
 				"fingerprint": "SHA256:test",
-				"principal":   "spaces-room",
+				"principal":   "spaces-user",
 				"expires_at":  "2026-03-30T00:00:00Z",
 				"certificate": "ssh-ed25519-cert-v01@openssh.com AAAATEST cert\n",
 			},
@@ -1186,8 +1110,8 @@ func TestSSHIssueCert(t *testing.T) {
 				if err := json.Unmarshal(body, &payload); err != nil {
 					t.Fatalf("json.Unmarshal failed: %v", err)
 				}
-				if payload["principal"] != "spaces-room" {
-					t.Fatalf("principal = %#v, want spaces-room", payload["principal"])
+				if payload["principal"] != "spaces-user" {
+					t.Fatalf("principal = %#v, want spaces-user", payload["principal"])
 				}
 				if payload["cert_ttl"] != "5m" {
 					t.Fatalf("cert_ttl = %#v, want 5m", payload["cert_ttl"])
@@ -1539,7 +1463,7 @@ func TestSSHConnectRequiresExplicitSpaceWhenMultipleSpacesVisible(t *testing.T) 
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
+						"guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -1560,7 +1484,7 @@ func TestSSHConnectRequiresExplicitSpaceWhenMultipleSpacesVisible(t *testing.T) 
 						"actor_disk_mb":     10240,
 						"actor_network_mb":  1024,
 						"actor_llm_tokens":  100000,
-						"byok_bytes_used": 0, "byok_requests_per_hour": 0,
+						"guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
 						"runtime_state":     "running",
 						"runtime_meta":      "",
 					},
@@ -1638,9 +1562,6 @@ func TestSubcommandHelpWithoutAuth(t *testing.T) {
 		{"space", "up", "-h"},
 		{"space", "down", "-h"},
 		{"space", "delete", "-h"},
-		{"space", "issue-member-auth-key", "-h"},
-		{"space", "member-auth-keys", "-h"},
-		{"space", "revoke-member-auth-key", "-h"},
 		{"ssh", "add-key", "-h"},
 		{"ssh", "remove-key", "-h"},
 		{"ssh", "issue-cert", "-h"},

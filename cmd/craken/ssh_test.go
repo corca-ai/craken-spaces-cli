@@ -266,7 +266,7 @@ func TestBuildSSHConnectArgsUsesStrictHostKeyChecking(t *testing.T) {
 		KnownHostsFile: "/tmp/known_hosts",
 		CertFile:       "/tmp/id_ed25519-cert.pub",
 		IdentityFile:   "/tmp/id_ed25519",
-		User:           "spaces-room",
+		User:           "spaces-user",
 		Host:           "cell.example.com",
 		Target:         "sp_123",
 	})
@@ -287,7 +287,7 @@ func TestRenderSSHClientConfigUsesStrictHostKeyChecking(t *testing.T) {
 	config, err := renderSSHClientConfig(sshClientConfig{
 		Alias:           "spaces-sp_123",
 		Host:            "cell.example.com",
-		User:            "spaces-room",
+		User:            "spaces-user",
 		Port:            22,
 		IdentityFile:    "/tmp/id_ed25519",
 		CertificateFile: "/tmp/id_ed25519-cert.pub",
@@ -335,7 +335,7 @@ func TestRenderSSHClientConfigRejectsUnsafeSpaceID(t *testing.T) {
 	_, err := renderSSHClientConfig(sshClientConfig{
 		Alias:           "spaces-sp_123",
 		Host:            "cell.example.com",
-		User:            "spaces-room",
+		User:            "spaces-user",
 		Port:            22,
 		IdentityFile:    "/tmp/id_ed25519",
 		CertificateFile: "/tmp/id_ed25519-cert.pub",

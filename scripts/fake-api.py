@@ -39,7 +39,7 @@ SPACE_TEMPLATE = {
     "cpu_millis": 4000, "memory_mib": 8192, "disk_mb": 10240,
     "network_egress_mb": 1024, "llm_tokens_limit": 100000, "llm_tokens_used": 0,
     "actor_cpu_millis": 0, "actor_memory_mib": 0, "actor_disk_mb": 0,
-    "actor_network_mb": 0, "actor_llm_tokens": 0, "byok_bytes_used": 0,
+    "actor_network_mb": 0, "actor_llm_tokens": 0, "guardian_bytes_used": 0,
     "runtime_state": "stopped", "runtime_meta": "",
 }
 

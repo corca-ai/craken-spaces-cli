@@ -442,9 +442,6 @@ Commands:
   space up                       Start a Space
   space down                     Stop a Space
   space delete                   Permanently delete a Space
-  space issue-member-auth-key    Invite a member with a scoped auth key
-  space member-auth-keys         List issued member auth keys
-  space revoke-member-auth-key   Revoke a member auth key
   ssh add-key                    Register an SSH public key
   ssh list-keys                  List registered SSH keys
   ssh remove-key                 Unregister an SSH key
