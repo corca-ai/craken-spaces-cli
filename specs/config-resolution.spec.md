@@ -104,7 +104,7 @@ SSH-related environment variables override defaults:
 |----------|---------|-------------|
 | `SPACES_SSH_HOST` | derived from base URL | SSH entry host |
 | `SPACES_SSH_PORT` | `22` | SSH entry port |
-| `SPACES_SSH_LOGIN_USER` | `spaces-room` | SSH login user |
+| `SPACES_SSH_LOGIN_USER` | `spaces-user` | SSH login user |
 | `SPACES_SSH_KNOWN_HOSTS_FILE` | `~/.ssh/spaces_known_hosts` | known_hosts file used for strict host verification |
 | `SPACES_SSH_BIN` | `ssh` from PATH | local ssh binary |
 

@@ -47,7 +47,7 @@ Local-state client:
 | `SPACES_SESSION_FILE` | no | Override local session file path |
 | `SPACES_SSH_HOST` | no | Override SSH entry host |
 | `SPACES_SSH_PORT` | no | Override SSH entry port (default: `22`) |
-| `SPACES_SSH_LOGIN_USER` | no | Room-entry SSH login user (default: `spaces-room`) |
+| `SPACES_SSH_LOGIN_USER` | no | Space-entry SSH login user (default: `spaces-user`) |
 | `SPACES_SSH_KNOWN_HOSTS_FILE` | no | Override known_hosts file used for strict SSH host verification |
 | `SPACES_SSH_BIN` | no | Override local `ssh` binary path |
 

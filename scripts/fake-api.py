@@ -458,7 +458,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "ok": True,
                 "fingerprint": "SHA256:fakecert",
-                "principal": body.get("principal", "spaces-room"),
+                "principal": body.get("principal", "spaces-user"),
                 "expires_at": "2026-01-01T00:05:00Z",
                 "certificate": "ssh-ed25519-cert-v01@openssh.com AAAA_FAKE_CERT\n",
             })
