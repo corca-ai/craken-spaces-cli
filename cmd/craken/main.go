@@ -64,8 +64,6 @@ func runWithStdin(argv []string, stdin io.Reader, stdout, stderr io.Writer) int 
 		return cmdAuth(cfg, args[1:], stdin, stdout, stderr)
 	case "login":
 		return cmdLogin(cfg, args[1:], stdin, stdout, stderr)
-	case "create":
-		return cmdCreate(cfg, args[1:], stdout, stderr)
 	case "list":
 		return cmdList(cfg, stdout, stderr)
 	case "whoami":
@@ -132,10 +130,6 @@ func cmdLogin(cfg cliConfig, argv []string, stdin io.Reader, stdout, stderr io.W
 		return code
 	}
 	return runLoginRequest(cfg, request, stdin, stdout, stderr)
-}
-
-func cmdCreate(cfg cliConfig, argv []string, stdout, stderr io.Writer) int {
-	return cmdCreateCommand(cfg, "create", argv, stdout, stderr)
 }
 
 func cmdList(cfg cliConfig, stdout, stderr io.Writer) int {
@@ -428,7 +422,6 @@ func printUsage(w io.Writer) {
 Shortcut Commands:
   login EMAIL                    Log in with email and auth key
   recover EMAIL                  Recover a lost session via email
-  create SPACE                   Create a new Space
   list                           List Spaces you have access to
   connect [SPACE]                Connect to a Space; uses the default Space when omitted
 
@@ -437,7 +430,6 @@ Commands:
   auth logout                    End session and remove local credentials
   auth recover EMAIL             Recover a lost session via email code
   whoami                         Show the currently authenticated user
-  space create                   Create a new Space
   space list                     List Spaces you have access to
   space up                       Start a Space
   space down                     Stop a Space

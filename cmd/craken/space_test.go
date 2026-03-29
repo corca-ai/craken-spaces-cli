@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -91,61 +90,6 @@ func TestSpaceRequiresAuth(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "not authenticated") {
 		t.Fatalf("stderr missing auth error: %s", stderr.String())
-	}
-}
-
-func TestSpaceCreatePayload(t *testing.T) {
-	server := newContractFakeServer(t, map[string]fakeOperation{
-		"createSpace": {
-			Body: map[string]any{
-				"ok": true,
-				"space": map[string]any{
-					"id": "sp_1", "name": "custom-room", "role": "admin",
-					"owner_user_id":  1,
-					"runtime_state": "running", "runtime_meta": "",
-					"cpu_millis": 2000, "memory_mib": 4096, "disk_mb": 5120,
-					"network_egress_mb": 512, "llm_tokens_used": 0, "llm_tokens_limit": 50000,
-					"actor_cpu_millis": 2000, "actor_memory_mib": 4096, "actor_disk_mb": 5120,
-					"actor_network_mb": 512, "actor_llm_tokens": 50000, "guardian_bytes_used": 0, "guardian_requests_per_hour": 0,
-					"created_at": "2026-01-01T00:00:00Z",
-				},
-			},
-			Assert: func(t *testing.T, _ *http.Request, body []byte) {
-				var payload map[string]any
-				if err := json.Unmarshal(body, &payload); err != nil {
-					t.Fatalf("json.Unmarshal failed: %v", err)
-				}
-				if payload["name"] != "custom-room" {
-					t.Fatalf("expected name=custom-room, got %v", payload["name"])
-				}
-				if _, ok := payload["runtime_driver"]; ok {
-					t.Fatal("expected runtime_driver to be absent from request payload")
-				}
-			},
-		},
-	})
-
-	sessionFile := filepath.Join(t.TempDir(), "session.json")
-	if err := saveSession(sessionFile, localSession{BaseURL: server.server.URL, Email: "alice@example.com", SessionToken: "sess_test"}); err != nil {
-		t.Fatal(err)
-	}
-
-	var stdout, stderr bytes.Buffer
-	code := run([]string{
-		"--session-file", sessionFile,
-		"space", "create",
-		"--name", "custom-room",
-		"--cpu-millis", "2000",
-		"--memory-mib", "4096",
-		"--disk-mb", "5120",
-		"--network-egress-mb", "512",
-		"--llm-tokens-limit", "50000",
-	}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("space create code=%d stderr=%s", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "created space sp_1 (custom-room)") {
-		t.Fatalf("stdout=%s", stdout.String())
 	}
 }
 

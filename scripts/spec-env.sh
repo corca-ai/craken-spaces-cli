@@ -53,6 +53,13 @@ spaces_issue_auth_key() {
   fi
   curl -fsS -G --data-urlencode "email=\$email" --data-urlencode "role=\$role" "\$SPACES_FAKE_API_URL/__test/issue-auth-key"
 }
+spaces_create_space() {
+  if [ "\$#" -ne 2 ]; then
+    echo "usage: spaces_create_space EMAIL NAME" >&2
+    return 2
+  fi
+  curl -fsS -G --data-urlencode "email=\$1" --data-urlencode "name=\$2" "\$SPACES_FAKE_API_URL/__test/create-space" >/dev/null
+}
 export SPACES_BASE_URL=${fake_url}
 export SPACES_FAKE_API_URL
 EOF

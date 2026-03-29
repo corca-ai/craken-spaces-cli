@@ -124,25 +124,6 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
-    post:
-      operationId: createSpace
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateSpaceRequest'
-      responses:
-        '200':
-          description: Created space
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SpaceResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
-        '401':
-          $ref: '#/components/responses/ErrorResponse'
   /api/v1/spaces/{spaceId}/up:
     post:
       operationId: startSpace
@@ -515,29 +496,6 @@ components:
           enum: [true]
         space:
           $ref: '#/components/schemas/Space'
-    CreateSpaceRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - name
-        - cpu_millis
-        - memory_mib
-        - disk_mb
-        - network_egress_mb
-        - llm_tokens_limit
-      properties:
-        name:
-          type: string
-        cpu_millis:
-          type: integer
-        memory_mib:
-          type: integer
-        disk_mb:
-          type: integer
-        network_egress_mb:
-          type: integer
-        llm_tokens_limit:
-          type: integer
     SSHKey:
       type: object
       additionalProperties: false

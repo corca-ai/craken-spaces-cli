@@ -834,7 +834,7 @@ func TestSpaceUpRequiresSpaceFlag(t *testing.T) {
 	}
 }
 
-func TestSpaceCreateListUpDownDelete(t *testing.T) {
+func TestSpaceListUpDownDelete(t *testing.T) {
 	spaceBody := map[string]any{
 		"id": "sp_1", "name": "test-room", "role": "admin",
 		"owner_user_id": 1,
@@ -846,9 +846,6 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 		"created_at": "2026-01-01T00:00:00Z",
 	}
 	server := newContractFakeServer(t, map[string]fakeOperation{
-		"createSpace": {
-			Body: map[string]any{"ok": true, "space": spaceBody},
-		},
 		"listSpaces": {
 			Body: map[string]any{
 				"ok":     true,
@@ -895,27 +892,9 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "space", "create", "--name", "test-room"}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("space create code=%d stderr=%s", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "created space") {
-		t.Fatalf("stdout missing 'created space': %s", stdout.String())
-	}
-	session, err := loadSession(sessionFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if session == nil || session.DefaultSpace != "sp_1" {
-		t.Fatalf("DefaultSpace = %#v, want sp_1", session)
-	}
-
 	// List
-	stdout.Reset()
-	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "space", "list"}, &stdout, &stderr)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--session-file", sessionFile, "space", "list"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("space list code=%d stderr=%s", code, stderr.String())
 	}
@@ -957,7 +936,7 @@ func TestSpaceCreateListUpDownDelete(t *testing.T) {
 	}
 }
 
-func TestRootCreateAndListShortcuts(t *testing.T) {
+func TestRootListShortcut(t *testing.T) {
 	spaceBody := map[string]any{
 		"id": "sp_1", "name": "shortcut-room", "role": "admin",
 		"owner_user_id": 1,
@@ -969,9 +948,6 @@ func TestRootCreateAndListShortcuts(t *testing.T) {
 		"created_at": "2026-01-01T00:00:00Z",
 	}
 	server := newContractFakeServer(t, map[string]fakeOperation{
-		"createSpace": {
-			Body: map[string]any{"ok": true, "space": spaceBody},
-		},
 		"listSpaces": {
 			Body: map[string]any{
 				"ok":     true,
@@ -986,17 +962,7 @@ func TestRootCreateAndListShortcuts(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--session-file", sessionFile, "create", "shortcut-room"}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("create code=%d stderr=%s", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "created space sp_1 (shortcut-room)") {
-		t.Fatalf("stdout missing created space output: %s", stdout.String())
-	}
-
-	stdout.Reset()
-	stderr.Reset()
-	code = run([]string{"--session-file", sessionFile, "list"}, &stdout, &stderr)
+	code := run([]string{"--session-file", sessionFile, "list"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("list code=%d stderr=%s", code, stderr.String())
 	}
@@ -1278,17 +1244,16 @@ func TestHelpCommand(t *testing.T) {
 		t.Fatalf("stdout missing section headers:\n%s", stdout.String())
 	}
 	loginIndex := strings.Index(stdout.String(), "\n  login EMAIL")
-	createIndex := strings.Index(stdout.String(), "\n  create SPACE")
 	listIndex := strings.Index(stdout.String(), "\n  list")
 	connectIndex := strings.Index(stdout.String(), "\n  connect [SPACE]")
 	authIndex := strings.Index(stdout.String(), "\n  auth login")
 	sshIndex := strings.Index(stdout.String(), "\n  ssh connect")
 	shortcutHeaderIndex := strings.Index(stdout.String(), "\nShortcut Commands:\n")
 	commandsHeaderIndex := strings.Index(stdout.String(), "\nCommands:\n")
-	if loginIndex < 0 || createIndex < 0 || listIndex < 0 || connectIndex < 0 || authIndex < 0 || sshIndex < 0 {
+	if loginIndex < 0 || listIndex < 0 || connectIndex < 0 || authIndex < 0 || sshIndex < 0 {
 		t.Fatalf("stdout missing expected commands:\n%s", stdout.String())
 	}
-	if shortcutHeaderIndex >= loginIndex || loginIndex >= createIndex || createIndex >= listIndex || listIndex >= connectIndex || connectIndex >= commandsHeaderIndex || commandsHeaderIndex >= authIndex || authIndex >= sshIndex {
+	if shortcutHeaderIndex >= loginIndex || loginIndex >= listIndex || listIndex >= connectIndex || connectIndex >= commandsHeaderIndex || commandsHeaderIndex >= authIndex || authIndex >= sshIndex {
 		t.Fatalf("help sections or ordering are wrong:\n%s", stdout.String())
 	}
 }
@@ -1558,7 +1523,6 @@ func TestSubcommandHelpWithoutAuth(t *testing.T) {
 	sessionFile := filepath.Join(t.TempDir(), "session.json")
 
 	subcmds := [][]string{
-		{"space", "create", "-h"},
 		{"space", "up", "-h"},
 		{"space", "down", "-h"},
 		{"space", "delete", "-h"},

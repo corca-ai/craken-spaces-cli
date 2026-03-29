@@ -122,18 +122,6 @@ func normalizeAuthKey(payload []byte) (string, error) {
 	return key, nil
 }
 
-func writeSecretFile(path, value string) error {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return errors.New("secret file path is required")
-	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return errors.New("secret value is empty")
-	}
-	return writePrivateFile(path, []byte(value+"\n"))
-}
-
 func validateSecretParentDir(path string) error {
 	dir := filepath.Dir(strings.TrimSpace(path))
 	info, err := os.Stat(dir)

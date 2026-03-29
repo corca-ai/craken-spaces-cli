@@ -28,6 +28,7 @@ space_members = {}          # space_id -> set(email)
 member_auth_keys = {}       # (space_id, key_id) -> record
 member_auth_key_values = {} # (space_id, key_id) -> auth key
 issued_auth_keys = {}       # auth key -> record
+next_space_id = 1
 next_ssh_key_id = 1
 next_member_key_id = 1
 next_auth_key_id = 1
@@ -178,7 +179,7 @@ class Handler(BaseHTTPRequestHandler):
         self._dispatch("DELETE")
 
     def _dispatch(self, method):
-        global next_ssh_key_id, next_member_key_id, next_session_id
+        global next_space_id, next_ssh_key_id, next_member_key_id, next_session_id
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
@@ -197,6 +198,21 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"ok": False, "error": error})
                 return
             self._send_text(200, key)
+            return
+
+        if method == "GET" and path == "/__test/create-space":
+            email = query.get("email", [""])[0]
+            name = query.get("name", [""])[0]
+            if not email or not name:
+                self._send_json(400, {"ok": False, "error": "email and name are required"})
+                return
+            space_id = "sp_" + str(next_space_id)
+            next_space_id += 1
+            rec = space_record(space_id, name, runtime_state="running")
+            spaces[space_id] = rec
+            space_owners[space_id] = email
+            space_members.setdefault(space_id, set()).add(email)
+            self._send_json(200, {"ok": True, "space": rec})
             return
 
         # --- auth/login (no auth required) ---
