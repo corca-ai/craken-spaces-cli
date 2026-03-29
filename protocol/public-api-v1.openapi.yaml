@@ -44,6 +44,8 @@ paths:
                 $ref: '#/components/schemas/SessionResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
   /api/v1/auth/recover:
     post:
       operationId: authRecover
