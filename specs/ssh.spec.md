@@ -4,7 +4,7 @@ type: spec
 
 # SSH Key and Certificate Management
 
-The CLI manages SSH public keys and short-lived certificates for secure Room
+The CLI manages SSH public keys and short-lived certificates for secure Space
 entry. For both **Space admins** and **Space members**, the default command is
 `spaces connect`. The typical flow is:
 

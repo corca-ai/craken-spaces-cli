@@ -1,13 +1,14 @@
 # Agents
 
 CLI client for Craken Spaces. It stores local session state, talks to
-the public control-plane HTTP API, and uses local `ssh` only for final Room
+the public control-plane HTTP API, and uses local `ssh` only for final Space
 entry.
 
 ## Terminology
 
-- **Space** -- a team's private, isolated environment.
-- **Room** -- an individual machine inside a Space (one per member or agent).
+- **Space** -- one user's private, isolated environment.
+- **Room** -- a lightweight isolated sandbox inside a Space; users create Rooms
+  after entry, and agents run inside their own Rooms.
 
 ## Primary specs
 

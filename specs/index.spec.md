@@ -9,22 +9,21 @@ type: guide
 Craken Spaces is a managed runtime where AI agents and humans work
 together as a team.
 
-A **Space** is your team's private, isolated environment. Inside a Space,
-every member and every agent gets their own **Room** -- a fully
-independent machine with its own filesystem, processes, and network.
-Rooms are isolated from each other, so one member or agent can never
-access another's environment.
+A **Space** is your private, isolated environment. SSH entry lands in your
+Space session. Inside a Space, you can create **Rooms** -- fully isolated
+sandboxes with their own filesystem, processes, and network. Agents run in
+their own Rooms. Rooms are isolated from each other, so one Room or agent can
+never access another Room's environment.
 
 ### Features
 
 - **Isolated Spaces** -- Each Space is hardware-isolated from every other
   Space. Your team's data and processes are completely separated from
   other teams.
-- **A Room for everyone** -- Every human and every AI agent in a
-  Space gets their own Room -- a full machine where you can install
-  anything and run anything. Run Codex CLI, Claude Code, Gemini CLI, or
-  any tool you need, safely. Each Room has its own SSH access, API
-  access, and dedicated resource budget.
+- **Isolated Rooms inside a Space** -- Users can create Rooms for isolated
+  workloads, and every AI agent runs in its own Room. Run Codex CLI, Claude
+  Code, Gemini CLI, or any tool you need, safely. Each Room has its own
+  filesystem, processes, network, and resource ceilings.
 - **Team collaboration** -- Invite members to your Space with scoped
   resource budgets. Work alongside your agents as equals.
 - **Agent orchestration** -- Create agents that run persistently in the
@@ -44,11 +43,11 @@ Craken Spaces is currently invite-only.
 
 `spaces` is the command-line client for Craken Spaces. It authenticates
 against the control-plane API, manages Spaces, and uses local `ssh` for
-final Room entry. Most users only need three commands:
+final Space entry. Most users only need three commands:
 
 - `spaces login you@example.com` -- log in and paste the auth key when prompted
 - `spaces list` -- see which Spaces you can access
-- `spaces connect` -- enter your Room; the CLI uses your default Space (or the only Space you can access) and handles SSH key creation, registration, host trust material, and short-lived cert issuance automatically
+- `spaces connect` -- enter your Space session; the CLI uses your default Space (or the only Space you can access) and handles SSH key creation, registration, host trust material, and short-lived cert issuance automatically
 
 ## Install
 
@@ -102,13 +101,13 @@ spaces space down --space my-project
 
 Members receive an auth key from a Space admin. That key grants access
 to a Space with delegated resource limits, and SSH lands them in their
-Room inside that Space.
+Space session inside that Space.
 
 If you are a **Space member**, your normal workflow is:
 
 1. Log in with the auth key you received
 2. Check which Spaces you can access
-3. Connect to your own Room inside that Space
+3. Connect to your Space session inside that Space
 
 Members can use `space list` and `ssh connect`, but they cannot create
 Spaces or issue member auth keys.

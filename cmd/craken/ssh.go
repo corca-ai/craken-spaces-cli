@@ -252,7 +252,7 @@ func parseSSHConnectRequest(commandName string, argv []string, stderr io.Writer)
 	identityFile := fs.String("identity-file", "", "SSH private key path; defaults to ~/.ssh/id_ed25519_spaces and generates it if needed")
 	knownHostsFile := fs.String("known-hosts-file", resolveKnownHostsFile(""), "known_hosts file used for strict host verification")
 	certTTL := fs.String("cert-ttl", "5m", "certificate lifetime")
-	remoteCommand := fs.String("command", "", "optional command to run inside the user Room")
+	remoteCommand := fs.String("command", "", "optional command to run inside the user Space session")
 	if len(argv) > 0 && !strings.HasPrefix(argv[0], "-") && !isHelpWord(argv[0]) {
 		argv = append([]string{"--space", argv[0]}, argv[1:]...)
 	}

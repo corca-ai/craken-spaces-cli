@@ -11,7 +11,7 @@ commands read that token automatically. Logging out removes the file.
 Both **Space admins** and **Space members** use the same login flow:
 
 - Admins log in with an admin auth key, then create and manage Spaces
-- Members log in with a member auth key they received from a Space admin, then list Spaces and connect to their Room
+- Members log in with a member auth key they received from a Space admin, then list Spaces and connect to their Space session
 
 ```run:shell -> $cli, $tmp
 # Test harness -- in normal use, just run "spaces" directly.
