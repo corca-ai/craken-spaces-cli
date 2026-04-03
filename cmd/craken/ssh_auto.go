@@ -84,23 +84,58 @@ func generateSSHIdentityFile(identityFile string) error {
 	if identityFile == "" {
 		return errors.New("SSH identity file path is required")
 	}
+	if err := validateSecretParentDir(identityFile); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(identityFile), 0o700); err != nil {
 		return err
 	}
-	sshKeygenPath, err := exec.LookPath("ssh-keygen")
+	if err := validateSecretParentDir(identityFile); err != nil {
+		return err
+	}
+	privateKeyData, publicKeyData, err := generateSSHIdentityPair(identityFile)
 	if err != nil {
 		return err
+	}
+	if err := writePrivateFile(identityFile, privateKeyData); err != nil {
+		return err
+	}
+	if err := writePrivateFile(identityFile+".pub", publicKeyData); err != nil {
+		return err
+	}
+	return nil
+}
+
+func generateSSHIdentityPair(identityFile string) (privKey, pubKey []byte, err error) {
+	sshKeygenPath, err := exec.LookPath("ssh-keygen")
+	if err != nil {
+		return nil, nil, err
 	}
 	comment := "spaces"
 	if hostname, hostErr := os.Hostname(); hostErr == nil && strings.TrimSpace(hostname) != "" {
 		comment = "spaces@" + strings.TrimSpace(hostname)
 	}
-	cmd := exec.Command(sshKeygenPath, "-q", "-t", "ed25519", "-N", "", "-f", identityFile, "-C", comment)
+	tmpDir, err := os.MkdirTemp(filepath.Dir(identityFile), "."+filepath.Base(identityFile)+".gen-*")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	tmpIdentityFile := filepath.Join(tmpDir, filepath.Base(identityFile))
+	cmd := exec.Command(sshKeygenPath, "-q", "-t", "ed25519", "-N", "", "-f", tmpIdentityFile, "-C", comment)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("ssh-keygen failed: %w: %s", err, strings.TrimSpace(string(output)))
+		return nil, nil, fmt.Errorf("ssh-keygen failed: %w: %s", err, strings.TrimSpace(string(output)))
 	}
-	return nil
+	privateKeyData, err := os.ReadFile(tmpIdentityFile)
+	if err != nil {
+		return nil, nil, err
+	}
+	publicKeyData, err := os.ReadFile(tmpIdentityFile + ".pub")
+	if err != nil {
+		return nil, nil, err
+	}
+	return privateKeyData, publicKeyData, nil
 }
 
 func ensureSSHKeyRegistered(client apiClient, material sshIdentityMaterial) (sshKeyRecord, bool, error) {
