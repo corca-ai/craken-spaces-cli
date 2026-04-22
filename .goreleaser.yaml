@@ -69,6 +69,7 @@ brews:
       owner: corca-ai
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
     name: craken-spaces-cli
     homepage: https://github.com/corca-ai/craken-spaces-cli
     description: CLI for Craken Spaces
