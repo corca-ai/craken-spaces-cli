@@ -27,7 +27,8 @@ entry.
 
 - Language: Go 1.26
 - Entry point: `cmd/craken/main.go`
-- Build/release: GoReleaser + Homebrew tap
+- Build/release: GoReleaser + Homebrew tap; keep `.goreleaser.yaml` publishing
+  formulas to `directory: Formula`
 - Docs guide: [docs/metadoc.md](docs/metadoc.md)
 
 ## Architecture
